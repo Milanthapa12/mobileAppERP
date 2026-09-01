@@ -1,0 +1,37 @@
+/**
+ * API Configuration Constants
+ * Centralized API endpoints and timeout settings for Logistics & ERP backend.
+ */
+
+export const DEFAULT_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.80/api/v2025.1';
+
+let activeBaseUrl = DEFAULT_BASE_URL;
+
+export const API_CONFIG = {
+  get BASE_URL() {
+    return activeBaseUrl;
+  },
+  set BASE_URL(url: string) {
+    activeBaseUrl = url;
+  },
+  TIMEOUT: 15000, // 15 seconds
+  HEADERS: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Host': 'logistics.test',
+  },
+};
+
+export const API_ENDPOINTS = {
+  AUTH: {
+    DEVICE_LOGIN: '/auth/device/login',
+    LOGOUT: '/auth/device/logout',
+    ME: '/auth/device/me',
+    SWITCH_BRANCH: '/auth/device/switch-branch',
+  },
+  ATTENDANCE: {
+    TODAY: '/auth/device/attendance/today',
+    PUNCH: '/auth/device/attendance/punch',
+  },
+};
