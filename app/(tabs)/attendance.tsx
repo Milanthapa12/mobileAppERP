@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,8 @@ import {
   Alert,
   Platform,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAttendance } from '@/context/AttendanceContext';
@@ -15,14 +17,91 @@ import AppHeader from '@/components/AppHeader';
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { Colors, Radius, Shadow } from '@/constants/theme';
 import { useLiveClock } from '@/hooks/useLiveClock';
+import { attendanceService, AttendanceHistoryItem } from '@/services/api/attendanceService';
 
 const { width } = Dimensions.get('window');
 
 export default function AttendanceScreen() {
   const { isCheckedIn, timeIn, timeOut, totalHours, toggleClockIn } = useAttendance();
   const [activeSegment, setActiveSegment] = useState<'history' | 'map' | 'statistic'>('history');
-  const [selectedMonth, setSelectedMonth] = useState('FEBRUARY, 2026');
-  const [selectedYear, setSelectedYear] = useState('2026');
+
+  // ── History state ──────────────────────────────────────────
+  const now = new Date();
+  const [historyMonth, setHistoryMonth] = useState(now.getMonth() + 1); // 1-12
+  const [historyYear,  setHistoryYear]  = useState(now.getFullYear());
+  const [historyData,  setHistoryData]  = useState<AttendanceHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError,   setHistoryError]   = useState<string | null>(null);
+
+  const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+  const fetchHistory = useCallback(async (year: number, month: number) => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await attendanceService.getHistory(year, month);
+      if (res?.data?.data) {
+        setHistoryData(res.data.data);
+      } else {
+        setHistoryData([]);
+      }
+    } catch (err: any) {
+      setHistoryError(err?.message || 'Failed to load attendance history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSegment === 'history') {
+      fetchHistory(historyYear, historyMonth);
+    }
+  }, [activeSegment, historyYear, historyMonth, fetchHistory]);
+
+  const shiftMonth = (delta: number) => {
+    let m = historyMonth + delta;
+    let y = historyYear;
+    if (m > 12) { m = 1; y++; }
+    if (m < 1)  { m = 12; y--; }
+    setHistoryMonth(m);
+    setHistoryYear(y);
+  };
+
+  // ── Status helpers ─────────────────────────────────────────
+  const getStatusPillStyle = (status: string) => {
+    switch (status) {
+      case 'late':          return { bg: '#FEE2E2', text: '#DC2626' };
+      case 'absent':        return { bg: '#FEE2E2', text: '#DC2626' };
+      case 'holiday':       return { bg: '#ECFDF5', text: '#059669' };
+      case 'off':           return { bg: '#F1F5F9', text: '#64748B' };
+      case 'on_leave':      return { bg: '#EFF6FF', text: '#2563EB' };
+      case 'half_day_leave':return { bg: '#FFF7ED', text: '#EA580C' };
+      case 'travel':        return { bg: '#EFF6FF', text: '#0284C7' };
+      case 'training':      return { bg: '#F5F3FF', text: '#7C3AED' };
+      default:              return { bg: '#F0FDF4', text: '#16A34A' }; // present
+    }
+  };
+
+  const getStatusLabel = (item: AttendanceHistoryItem): string => {
+    if (item.event) return item.event.toUpperCase();
+    switch (item.status) {
+      case 'present':   return item.overtime_seconds > 0 ? `OVERTIME | ${item.ot_formatted}` : `${item.worked_formatted} worked`;
+      case 'late':      return `LATE ${item.late_formatted} | ${item.worked_formatted} worked`;
+      case 'absent':    return 'ABSENT';
+      case 'holiday':   return item.holiday_name ? item.holiday_name.toUpperCase() : 'HOLIDAY';
+      case 'off':       return 'OFF DAY';
+      case 'on_leave':  return 'ON LEAVE';
+      case 'half_day':  return `HALF DAY | ${item.worked_formatted} worked`;
+      case 'half_day_leave': return 'HALF DAY LEAVE';
+      case 'travel':    return 'TRAVEL';
+      case 'training':  return 'TRAINING';
+      case 'in_lieu':   return 'IN LIEU';
+      case 'punched':   return 'MISSING CHECKOUT';
+      default:          return item.status.replace('_', ' ').toUpperCase();
+    }
+  };
+
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear().toString());
 
   const { timeStr, dateStr } = useLiveClock('24h');
 
@@ -87,129 +166,142 @@ export default function AttendanceScreen() {
       {/* SEGMENT 1: HISTORY VIEW */}
       {activeSegment === 'history' && (
         <View style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* Filter Dropdown */}
-            <TouchableOpacity style={styles.filterDropdown} activeOpacity={0.8}>
-              <Ionicons name="calendar-outline" size={18} color="#0041E8" />
-              <Text style={styles.filterDropdownText}>{selectedMonth}</Text>
-              <Ionicons name="chevron-down" size={16} color="#0041E8" />
-            </TouchableOpacity>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={historyLoading}
+                onRefresh={() => fetchHistory(historyYear, historyMonth)}
+                colors={['#0041E8']}
+                tintColor="#0041E8"
+              />
+            }
+          >
 
-            {/* Timeline Item 1: MON 10 Feb */}
-            <View style={styles.historyCard}>
-              <View style={styles.dayCol}>
-                <Text style={styles.dayName}>MON</Text>
-                <Text style={styles.dayDate}>10 Feb, 2026</Text>
-              </View>
-              <View style={styles.detailsCol}>
-                <View style={styles.timeRow}>
-                  <View style={[styles.timeDot, { backgroundColor: '#16A34A' }]}>
-                    <Ionicons name="arrow-forward" size={10} color="#FFF" />
-                  </View>
-                  <View>
-                    <Text style={styles.timeValue}>08:00</Text>
-                    <Text style={styles.locText}>Thamrin City Lantai 7 Unit OS 01 A-B, Jalan Kebon K...</Text>
-                  </View>
-                </View>
-
-                <View style={styles.timeRow}>
-                  <View style={[styles.timeDot, { backgroundColor: '#DC2626' }]}>
-                    <Ionicons name="arrow-back" size={10} color="#FFF" />
-                  </View>
-                  <View>
-                    <Text style={styles.timeValue}>17:00</Text>
-                    <Text style={styles.locText}>Thamrin City Lantai 7 Unit OS 01 A-B, Jalan Kebon K...</Text>
-                  </View>
-                </View>
-
-                <View style={styles.statusPill}>
-                  <Text style={styles.statusPillText}>8 H 0 M of working hours</Text>
-                </View>
-              </View>
+            {/* Month Navigator */}
+            <View style={styles.monthNav}>
+              <TouchableOpacity onPress={() => shiftMonth(-1)} style={styles.monthNavBtn}>
+                <Ionicons name="chevron-back" size={18} color="#0041E8" />
+              </TouchableOpacity>
+              <Text style={styles.filterDropdownText}>
+                {monthNames[historyMonth - 1]}, {historyYear}
+              </Text>
+              <TouchableOpacity
+                onPress={() => shiftMonth(1)}
+                style={styles.monthNavBtn}
+                disabled={historyYear === now.getFullYear() && historyMonth === now.getMonth() + 1}
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={historyYear === now.getFullYear() && historyMonth === now.getMonth() + 1 ? '#CBD5E1' : '#0041E8'}
+                />
+              </TouchableOpacity>
             </View>
 
-            {/* Timeline Item 2: SUN 9 Feb (Off Day) */}
-            <View style={styles.historyCard}>
-              <View style={styles.dayCol}>
-                <Text style={[styles.dayName, { color: '#94A3B8' }]}>SUN</Text>
-                <Text style={styles.dayDate}>9 Feb, 2026</Text>
+            {/* Loading */}
+            {historyLoading && (
+              <View style={styles.centerState}>
+                <ActivityIndicator size="large" color="#0041E8" />
+                <Text style={styles.centerStateText}>Loading history…</Text>
               </View>
-              <View style={styles.detailsCol}>
-                <View style={styles.offDayBanner}>
-                  <Text style={styles.offDayText}>Off Day</Text>
-                </View>
+            )}
+
+            {/* Error */}
+            {!historyLoading && historyError && (
+              <View style={styles.centerState}>
+                <Ionicons name="alert-circle-outline" size={40} color="#DC2626" />
+                <Text style={[styles.centerStateText, { color: '#DC2626' }]}>{historyError}</Text>
+                <TouchableOpacity
+                  style={[styles.primaryActionButton, { marginTop: 12, paddingHorizontal: 24, height: 40 }]}
+                  onPress={() => fetchHistory(historyYear, historyMonth)}
+                >
+                  <Text style={styles.primaryActionButtonText}>Retry</Text>
+                </TouchableOpacity>
               </View>
-            </View>
+            )}
 
-            {/* Timeline Item 3: SAT 8 Feb (Overtime) */}
-            <View style={styles.historyCard}>
-              <View style={styles.dayCol}>
-                <Text style={styles.dayName}>SAT</Text>
-                <Text style={styles.dayDate}>8 Feb, 2026</Text>
+            {/* Empty state */}
+            {!historyLoading && !historyError && historyData.length === 0 && (
+              <View style={styles.centerState}>
+                <Ionicons name="calendar-outline" size={40} color="#CBD5E1" />
+                <Text style={styles.centerStateText}>No records for this month.</Text>
               </View>
-              <View style={styles.detailsCol}>
-                <View style={styles.timeRow}>
-                  <View style={[styles.timeDot, { backgroundColor: '#16A34A' }]}>
-                    <Ionicons name="arrow-forward" size={10} color="#FFF" />
-                  </View>
-                  <View>
-                    <Text style={styles.timeValue}>13:02</Text>
-                    <Text style={styles.locText}>Thamrin City Lantai 7 Unit OS 01 A-B...</Text>
-                  </View>
-                </View>
+            )}
 
-                <View style={styles.timeRow}>
-                  <View style={[styles.timeDot, { backgroundColor: '#DC2626' }]}>
-                    <Ionicons name="arrow-back" size={10} color="#FFF" />
-                  </View>
-                  <View>
-                    <Text style={styles.timeValue}>17:00</Text>
-                    <Text style={styles.locText}>Thamrin City Lantai 7 Unit OS 01 A-B...</Text>
-                  </View>
-                </View>
+            {/* History cards */}
+            {!historyLoading && !historyError && historyData.map((item, idx) => {
+              const isOffOrHoliday = ['off', 'holiday'].includes(item.status);
+              const isAbsent = item.status === 'absent';
+              const pill = getStatusPillStyle(item.status);
+              const dayAbbr = item.day_name.slice(0, 3).toUpperCase();
+              // Format date nicely: '02 Sep, 2026'
+              const dateObj = new Date(item.log_date + 'T00:00:00');
+              const dateFormatted = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-                <View style={[styles.statusPill, { backgroundColor: '#E0F2FE' }]}>
-                  <Text style={[styles.statusPillText, { color: '#0284C7' }]}>
-                    OVERTIME CLAIM | 4 H 2 M of working hours
-                  </Text>
-                </View>
-              </View>
-            </View>
+              return (
+                <View key={item.log_date} style={styles.historyCard}>
+                  <View style={styles.dayCol}>
+                    <Text style={[
+                      styles.dayName,
+                      (isOffOrHoliday || isAbsent) && { color: '#94A3B8' },
+                    ]}>{dayAbbr}</Text>
+                    <Text style={styles.dayDate}>{dateFormatted}</Text>
+                    {item.shift_name && (
+                      <Text style={styles.shiftLabel}>{item.shift_name}</Text>
+                    )}
+                  </View>
 
-            {/* Timeline Item 4: FRI 7 Feb (Late) */}
-            <View style={styles.historyCard}>
-              <View style={styles.dayCol}>
-                <Text style={styles.dayName}>FRI</Text>
-                <Text style={styles.dayDate}>7 Feb, 2026</Text>
-              </View>
-              <View style={styles.detailsCol}>
-                <View style={styles.timeRow}>
-                  <View style={[styles.timeDot, { backgroundColor: '#16A34A' }]}>
-                    <Ionicons name="arrow-forward" size={10} color="#FFF" />
-                  </View>
-                  <View>
-                    <Text style={styles.timeValue}>08:13</Text>
-                    <Text style={styles.locText}>Thamrin City Lantai 7 Unit OS 01 A-B...</Text>
-                  </View>
-                </View>
+                  <View style={styles.detailsCol}>
+                    {isOffOrHoliday ? (
+                      <View style={styles.offDayBanner}>
+                        <Text style={styles.offDayText}>
+                          {item.status === 'holiday' && item.holiday_name ? item.holiday_name : (item.status === 'holiday' ? 'Holiday' : 'Off Day')}
+                        </Text>
+                      </View>
+                    ) : isAbsent ? (
+                      <View style={[styles.offDayBanner, { backgroundColor: '#FEE2E2' }]}>
+                        <Text style={[styles.offDayText, { color: '#DC2626' }]}>Absent</Text>
+                      </View>
+                    ) : (
+                      <>
+                        {/* Clock In row */}
+                        <View style={styles.timeRow}>
+                          <View style={[styles.timeDot, { backgroundColor: '#16A34A' }]}>
+                            <Ionicons name="arrow-forward" size={10} color="#FFF" />
+                          </View>
+                          <View>
+                            <Text style={styles.timeValue}>{item.actual_in ?? '—'}</Text>
+                            <Text style={styles.locText}>{item.shift_working_hours ?? 'Mobile punch'}</Text>
+                          </View>
+                        </View>
 
-                <View style={styles.timeRow}>
-                  <View style={[styles.timeDot, { backgroundColor: '#DC2626' }]}>
-                    <Ionicons name="arrow-back" size={10} color="#FFF" />
-                  </View>
-                  <View>
-                    <Text style={styles.timeValue}>17:00</Text>
-                    <Text style={styles.locText}>Thamrin City Lantai 7 Unit OS 01 A-B...</Text>
-                  </View>
-                </View>
+                        {/* Clock Out row */}
+                        <View style={styles.timeRow}>
+                          <View style={[styles.timeDot, { backgroundColor: item.actual_out ? '#DC2626' : '#CBD5E1' }]}>
+                            <Ionicons name="arrow-back" size={10} color="#FFF" />
+                          </View>
+                          <View>
+                            <Text style={[styles.timeValue, !item.actual_out && { color: '#94A3B8' }]}>
+                              {item.actual_out ?? 'not yet'}
+                            </Text>
+                            <Text style={styles.locText}>{item.shift_working_hours ?? 'Mobile punch'}</Text>
+                          </View>
+                        </View>
 
-                <View style={[styles.statusPill, { backgroundColor: '#FEE2E2' }]}>
-                  <Text style={[styles.statusPillText, { color: '#DC2626' }]}>
-                    2 MIN LATE | 10 H 3 M of working hours
-                  </Text>
+                        {/* Status pill */}
+                        <View style={[styles.statusPill, { backgroundColor: pill.bg }]}>
+                          <Text style={[styles.statusPillText, { color: pill.text }]}>
+                            {getStatusLabel(item)}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
                 </View>
-              </View>
-            </View>
+              );
+            })}
           </ScrollView>
 
           {/* Send Monthly Report Fixed Button */}
@@ -463,6 +555,39 @@ const styles = StyleSheet.create({
     color: '#0041E8',
     fontSize: 13,
     fontWeight: '700',
+  },
+  monthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  monthNavBtn: {
+    padding: 4,
+  },
+  centerState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    gap: 10,
+  },
+  centerStateText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  shiftLabel: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 3,
+    fontWeight: '500',
   },
   historyCard: {
     flexDirection: 'row',

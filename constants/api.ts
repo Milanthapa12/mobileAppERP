@@ -4,7 +4,7 @@
  */
 
 export const DEFAULT_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.80/api/v2025.1';
+  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.80:8000/api/v2025.1';
 
 let activeBaseUrl = DEFAULT_BASE_URL;
 
@@ -33,5 +33,6 @@ export const API_ENDPOINTS = {
   ATTENDANCE: {
     TODAY: '/auth/device/attendance/today',
     PUNCH: '/auth/device/attendance/punch',
+    HISTORY: '/auth/device/attendanceHistory',
   },
 };
