@@ -94,7 +94,7 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
     setWarningMsg(null);
     try {
       const res = punchType === 'in' ? await punchClockIn(reason) : await punchClockOut(reason);
-      showMessage('Success', res.message || (punchType === 'in' ? 'Day In punched!' : 'Day Out punched!'));
+      showMessage('Success', res.message || (punchType === 'in' ? 'Clock In punched!' : 'Clock Out punched!'));
       if (res.warning) {
         setWarningMsg(res.warning);
       }
@@ -256,7 +256,7 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
                 <>
                   <Ionicons name="hand-left-outline" size={40} color={Colors.card} />
                   <Text style={styles.punchLabel}>
-                    {todayLoading ? 'Loading' : isCheckedIn ? 'Day Out' : 'Day In'}
+                    {todayLoading ? 'Loading' : isCheckedIn ? 'Clock Out' : 'Clock In'}
                   </Text>
                 </>
               )}
@@ -314,12 +314,12 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
         </View>
       </View>
 
-      {/* ── Day In / Day Out Cards ───────────────────────────── */}
+      {/* ── Clock In / Clock Out Cards ───────────────────────────── */}
       <View style={styles.infoRow}>
         <View style={styles.infoCard}>
           <View style={styles.infoCardHeader}>
             <Ionicons name="log-in-outline" size={16} color={Colors.success} />
-            <Text style={styles.infoCardTitle}>Day In</Text>
+            <Text style={styles.infoCardTitle}>Clock In</Text>
           </View>
           <Text style={[styles.infoCardValue, { color: Colors.success }]}>
             {todayLoading ? '—' : (todayData?.actual_in ?? '--:--')}
@@ -329,7 +329,7 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
         <View style={styles.infoCard}>
           <View style={styles.infoCardHeader}>
             <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
-            <Text style={styles.infoCardTitle}>Day Out</Text>
+            <Text style={styles.infoCardTitle}>Clock Out</Text>
           </View>
           <Text style={[styles.infoCardValue, { color: Colors.danger }]}>
             {todayLoading ? '—' : (todayData?.actual_out ?? '--:--')}
