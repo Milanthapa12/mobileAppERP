@@ -44,7 +44,13 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to access your location for attendance clock-in/out and break punches."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

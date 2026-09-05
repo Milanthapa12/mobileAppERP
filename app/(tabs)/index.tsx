@@ -1,16 +1,13 @@
-import { useAttendance } from '@/context/AttendanceContext';
 import { useAuth } from '@/hooks/useAuth';
-import { useLiveClock } from '@/hooks/useLiveClock';
 import { Colors, Radius, Shadow } from '@/constants/theme';
 import AppHeader from '@/components/AppHeader';
 import ScreenWrapper from '@/components/ScreenWrapper';
+import AttendancePanel from '@/components/AttendancePanel';
 import NotificationsModal, { DEFAULT_NOTIFICATIONS } from '@/components/NotificationsModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -39,26 +36,11 @@ const PENDING_APPROVALS = [
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { isCheckedIn, timeIn, timeOut, totalHours, toggleClockIn } = useAttendance();
   const { user, activeBranch } = useAuth();
-  const { timeStr, dateStr } = useLiveClock('12h');
   const [showNotifications, setShowNotifications] = useState(false);
 
   const displayName = user?.name || 'Milan Thapa';
   const branchName  = activeBranch?.name || 'Dhaka, Bangladesh';
-
-  const handlePunch = async () => {
-    try {
-      await toggleClockIn();
-      const msg = isCheckedIn ? 'Checked Out successfully!' : 'Checked In successfully!';
-      if (Platform.OS === 'web') alert(msg);
-      else Alert.alert('Success', msg);
-    } catch (err: any) {
-      const msg = err?.message || 'Failed to punch.';
-      if (Platform.OS === 'web') alert(msg);
-      else Alert.alert('Error', msg);
-    }
-  };
 
   return (
     <ScreenWrapper>
@@ -71,60 +53,8 @@ export default function DashboardScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* ── Clock & Date ─────────────────────────────────────── */}
-        <View style={styles.clockSection}>
-          <Text style={styles.clockText}>{timeStr}</Text>
-          <Text style={styles.dateText}>{dateStr}</Text>
-        </View>
-
-        {/* ── Circular Punch Button ────────────────────────────── */}
-        <View style={styles.punchArea}>
-          <View style={[styles.dashedRing, isCheckedIn && styles.dashedRingOut]}>
-            <TouchableOpacity
-              style={[styles.punchButton, isCheckedIn ? styles.punchButtonOut : styles.punchButtonIn]}
-              activeOpacity={0.85}
-              onPress={handlePunch}
-            >
-              <Ionicons name="hand-left-outline" size={40} color={Colors.card} />
-              <Text style={styles.punchLabel}>{isCheckedIn ? 'Day Out' : 'Day In'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ── Location ─────────────────────────────────────────── */}
-        <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
-          <Text style={styles.locationText}>{branchName}</Text>
-        </View>
-
-        {/* ── Day In / Day Out Cards ───────────────────────────── */}
-        <View style={styles.infoRow}>
-          <View style={styles.infoCard}>
-            <View style={styles.infoCardHeader}>
-              <Ionicons name="log-in-outline" size={16} color={Colors.success} />
-              <Text style={styles.infoCardTitle}>Day In</Text>
-            </View>
-            <Text style={[styles.infoCardValue, { color: Colors.success }]}>
-              {timeIn && timeIn !== '--:--' ? timeIn : '--:--'}
-            </Text>
-          </View>
-          <View style={styles.infoCard}>
-            <View style={styles.infoCardHeader}>
-              <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
-              <Text style={styles.infoCardTitle}>Day Out</Text>
-            </View>
-            <Text style={[styles.infoCardValue, { color: Colors.danger }]}>
-              {timeOut && timeOut !== 'not yet' ? timeOut : '--:--'}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── Total Hours ──────────────────────────────────────── */}
-        <View style={styles.totalHoursRow}>
-          <Ionicons name="time-outline" size={14} color={Colors.primary} />
-          <Text style={styles.totalHoursText}>Total Hours Today: </Text>
-          <Text style={styles.totalHoursValue}>{totalHours}</Text>
-        </View>
+        {/* ── Attendance Panel (full web parity) ──────────────── */}
+        <AttendancePanel />
 
         {/* ── Quick Actions ────────────────────────────────────── */}
         <View style={styles.sectionHeaderRow}>
@@ -196,119 +126,6 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 40 },
-
-  clockSection: {
-    alignItems: 'center',
-    paddingTop: 28,
-    paddingBottom: 8,
-    backgroundColor: Colors.card,
-  },
-  clockText: {
-    fontSize: 44,
-    fontWeight: '800',
-    color: Colors.text,
-    letterSpacing: 1,
-  },
-  dateText: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    fontWeight: '500',
-    marginTop: 4,
-  },
-
-  punchArea: {
-    alignItems: 'center',
-    paddingVertical: 28,
-    backgroundColor: Colors.card,
-  },
-  dashedRing: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 3,
-    borderStyle: 'dashed',
-    borderColor: '#86EFAC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dashedRingOut: { borderColor: '#FCA5A5' },
-  punchButton: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  punchButtonIn:  { backgroundColor: Colors.success },
-  punchButtonOut: { backgroundColor: Colors.danger  },
-  punchLabel: {
-    color: Colors.card,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingBottom: 20,
-    backgroundColor: Colors.card,
-  },
-  locationText: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    fontWeight: '500',
-  },
-
-  infoRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
-    marginTop: 16,
-  },
-  infoCard: {
-    flex: 1,
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: 14,
-    ...Shadow.sm,
-  },
-  infoCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  infoCardTitle: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  infoCardValue: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-
-  totalHoursRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 14,
-    marginBottom: 4,
-  },
-  totalHoursText: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    fontWeight: '500',
-  },
-  totalHoursValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
 
   sectionHeaderRow: {
     paddingHorizontal: 20,

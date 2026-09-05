@@ -9,6 +9,21 @@ export interface PunchPayload {
   reason?: string;
 }
 
+export interface AttendanceSegment {
+  id?: number;
+  segment_number?: number;
+  type?: 'work' | 'break';
+  is_break?: boolean;
+  is_open?: boolean;
+  segment_in?: string | null;
+  segment_out?: string | null;
+  duration_formatted?: string | null;
+  in_reason?: string | null;
+  out_reason?: string | null;
+}
+
+export type OffDayPunchFlag = boolean | number | string;
+
 export interface TodayAttendanceData {
   log_date: string;
   actual_in: string | null;
@@ -18,17 +33,19 @@ export interface TodayAttendanceData {
   ot_formatted?: string;
   status: string;
   day_type?: string;
-  is_off_day_punch?: boolean;
+  is_off_day_punch?: OffDayPunchFlag;
   holiday_name?: string | null;
   can_clock_in: boolean;
   can_clock_out: boolean;
   can_start_break?: boolean;
   can_end_break?: boolean;
   is_on_break?: boolean;
+  is_flagged?: boolean;
+  flag_reason?: string | null;
   shift_name?: string;
   shift_start_time?: string;
   end_start_time?: string;
-  segments?: any[];
+  segments?: AttendanceSegment[];
 }
 
 export interface TodayAttendanceResponse {

@@ -15,14 +15,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAttendance } from '@/context/AttendanceContext';
 import AppHeader from '@/components/AppHeader';
 import ScreenWrapper from '@/components/ScreenWrapper';
+import AttendancePanel from '@/components/AttendancePanel';
 import { Colors, Radius, Shadow } from '@/constants/theme';
-import { useLiveClock } from '@/hooks/useLiveClock';
 import { attendanceService, AttendanceHistoryItem } from '@/services/api/attendanceService';
+import { getStatusMeta } from '@/services/attendanceStatus';
 
 const { width } = Dimensions.get('window');
 
 export default function AttendanceScreen() {
-  const { isCheckedIn, timeIn, timeOut, totalHours, toggleClockIn } = useAttendance();
+  const {
+    isLoading: todayLoading,
+    refreshTodayStatus,
+  } = useAttendance();
   const [activeSegment, setActiveSegment] = useState<'history' | 'map' | 'statistic'>('history');
 
   // ── History state ──────────────────────────────────────────
@@ -69,17 +73,8 @@ export default function AttendanceScreen() {
 
   // ── Status helpers ─────────────────────────────────────────
   const getStatusPillStyle = (status: string) => {
-    switch (status) {
-      case 'late':          return { bg: '#FEE2E2', text: '#DC2626' };
-      case 'absent':        return { bg: '#FEE2E2', text: '#DC2626' };
-      case 'holiday':       return { bg: '#ECFDF5', text: '#059669' };
-      case 'off':           return { bg: '#F1F5F9', text: '#64748B' };
-      case 'on_leave':      return { bg: '#EFF6FF', text: '#2563EB' };
-      case 'half_day_leave':return { bg: '#FFF7ED', text: '#EA580C' };
-      case 'travel':        return { bg: '#EFF6FF', text: '#0284C7' };
-      case 'training':      return { bg: '#F5F3FF', text: '#7C3AED' };
-      default:              return { bg: '#F0FDF4', text: '#16A34A' }; // present
-    }
+    const meta = getStatusMeta(status);
+    return { bg: meta.bg, text: meta.text };
   };
 
   const getStatusLabel = (item: AttendanceHistoryItem): string => {
@@ -102,24 +97,6 @@ export default function AttendanceScreen() {
   };
 
   const [selectedYear, setSelectedYear] = useState(now.getFullYear().toString());
-
-  const { timeStr, dateStr } = useLiveClock('24h');
-
-  const handleRecordClockIn = async () => {
-    const actionType = isCheckedIn ? 'out' : 'in';
-    try {
-      await toggleClockIn();
-      const msg = actionType === 'in'
-        ? `Clocked in successfully!`
-        : `Clocked out successfully!`;
-      if (Platform.OS === 'web') alert(msg);
-      else Alert.alert('Success', msg);
-    } catch (err: any) {
-      const msg = err?.message || `Failed to punch ${actionType}.`;
-      if (Platform.OS === 'web') alert(msg);
-      else Alert.alert('Punch Error', msg);
-    }
-  };
 
   const handleSendReport = () => {
     const msg = 'Monthly attendance report sent to HR successfully!';
@@ -317,86 +294,22 @@ export default function AttendanceScreen() {
         </View>
       )}
 
-      {/* SEGMENT 2: MAP CLOCK-IN VIEW */}
+      {/* SEGMENT 2: CLOCK-IN VIEW */}
       {activeSegment === 'map' && (
-        <View style={{ flex: 1 }}>
-          {/* Simulated Map Workspace */}
-          <View style={styles.mapContainer}>
-            <View style={styles.mapGridBackground}>
-              {/* Map Road Graphics */}
-              <View style={styles.mapRoad1} />
-              <View style={styles.mapRoad2} />
-              <View style={styles.mapLandmark1}>
-                <Text style={styles.landmarkText}>Jakarta Pusat</Text>
-              </View>
-              <View style={styles.mapLandmark2}>
-                <Text style={styles.landmarkText}>Monumen Nasional</Text>
-              </View>
-            </View>
-
-            {/* Top Floating Time Pin */}
-            <View style={styles.timeBadgeFloating}>
-              <Text style={styles.timeBadgeDate}>{dateStr}</Text>
-              <Text style={styles.timeBadgeClock}>{timeStr}</Text>
-            </View>
-
-            {/* Central Radar Location Pin */}
-            <View style={styles.pinWrapper}>
-              <View style={styles.pinRadarPulse} />
-              <View style={styles.pinBubble}>
-                <Ionicons name="location" size={24} color="#FFF" />
-              </View>
-              <Text style={styles.pinLabel}>Theresa Jakarta (HQ)</Text>
-            </View>
-          </View>
-
-          {/* Bottom Attendance Card Sheet */}
-          <View style={styles.bottomSheet}>
-            <View style={styles.sheetTimeRow}>
-              <View style={styles.sheetTimeBlock}>
-                <View style={[styles.timeDot, { backgroundColor: '#16A34A' }]}>
-                  <Ionicons name="arrow-forward" size={10} color="#FFF" />
-                </View>
-                <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.timeValue}>{timeIn}</Text>
-                    {isCheckedIn && <Text style={styles.lateTag}>Checked In</Text>}
-                  </View>
-                  <Text style={styles.locText}>Thamrin City Lantai 7 Unit OS 01 A-B, Kebon Kacang...</Text>
-                </View>
-              </View>
-
-              <View style={styles.sheetTimeBlock}>
-                <View style={[styles.timeDot, { backgroundColor: timeOut !== 'not yet' ? '#DC2626' : '#CBD5E1' }]}>
-                  <Ionicons name="ellipse-outline" size={10} color="#FFF" />
-                </View>
-                <View>
-                  <Text style={[styles.timeValue, { color: timeOut !== 'not yet' ? '#DC2626' : '#94A3B8' }]}>
-                    {timeOut}
-                  </Text>
-                  <Text style={styles.locText}>Thamrin City Lantai 7 Unit OS 01 A-B, Kebon Kacang...</Text>
-                </View>
-              </View>
-
-              <View style={[styles.statusPill, { backgroundColor: '#E0F2FE', marginTop: 4 }]}>
-                <Text style={[styles.statusPillText, { color: '#0284C7' }]}>{totalHours}</Text>
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.primaryActionButton,
-                  isCheckedIn && { backgroundColor: '#DC2626' },
-                ]}
-                activeOpacity={0.88}
-                onPress={handleRecordClockIn}
-              >
-                <Text style={styles.primaryActionButtonText}>
-                  {!isCheckedIn ? 'RECORD / CLOCK IN' : 'CLOCK OUT'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.clockScrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={todayLoading}
+              onRefresh={refreshTodayStatus}
+              colors={['#0041E8']}
+              tintColor="#0041E8"
+            />
+          }
+        >
+          <AttendancePanel />
+        </ScrollView>
       )}
 
       {/* SEGMENT 3: STATISTIC VIEW */}
@@ -698,6 +611,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  /* Clock-In View Styling */
+  clockScrollContent: {
+    padding: 16,
+    paddingBottom: 40,
   },
   /* Map View Styling */
   mapContainer: {

@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { attendanceService, TodayAttendanceData } from '@/services/api/attendanceService';
+import { getPunchLocation } from '@/services/location/geolocation';
 import { useAuth } from '@/hooks/useAuth';
+
+export type PunchResult = {
+  message: string;
+  warning?: string;
+};
 
 type AttendanceContextType = {
   isCheckedIn: boolean;
@@ -11,6 +17,9 @@ type AttendanceContextType = {
   error: string | null;
   todayData: TodayAttendanceData | null;
   refreshTodayStatus: () => Promise<void>;
+  punchClockIn: (reason?: string) => Promise<PunchResult>;
+  punchClockOut: (reason?: string) => Promise<PunchResult>;
+  punchBreak: (type: 'in' | 'out') => Promise<PunchResult>;
   toggleClockIn: (reason?: string) => Promise<void>;
 };
 
@@ -62,20 +71,37 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [isAuthenticated, refreshTodayStatus]);
 
-  const toggleClockIn = async (reason?: string) => {
+  const performPunch = useCallback(async (
+    punchType: 'in' | 'out',
+    kind: 'work' | 'break',
+    reason?: string
+  ): Promise<PunchResult> => {
     setIsLoading(true);
     setError(null);
-    const punchType = isCheckedIn ? 'out' : 'in';
-
     try {
-      const payload = {
-        punch_type: punchType as 'in' | 'out',
-        location_name: 'Mobile App',
-        reason: reason || (punchType === 'in' ? 'Clocked in via Vritico ERP Mobile' : 'Clocked out via Vritico ERP Mobile'),
-      };
+      const location = await getPunchLocation();
 
-      await attendanceService.punch(payload);
+      const finalReason =
+        kind === 'break'
+          ? 'break'
+          : reason?.trim() ||
+            (punchType === 'in'
+              ? 'Clocked in via Vritico ERP Mobile'
+              : 'Clocked out via Vritico ERP Mobile');
+
+      const res = await attendanceService.punch({
+        punch_type: punchType,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        location_name: location.location_name,
+        reason: finalReason,
+      });
+
       await refreshTodayStatus();
+      return {
+        message: res?.message || (kind === 'break' ? 'Break punch saved' : 'Punch saved'),
+        warning: res?.data?.warning,
+      };
     } catch (err: any) {
       const msg = err?.message || `Failed to punch ${punchType}.`;
       setError(msg);
@@ -83,7 +109,29 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [refreshTodayStatus]);
+
+  const punchClockIn = useCallback(
+    async (reason?: string) => performPunch('in', 'work', reason),
+    [performPunch]
+  );
+
+  const punchClockOut = useCallback(
+    async (reason?: string) => performPunch('out', 'work', reason),
+    [performPunch]
+  );
+
+  const punchBreak = useCallback(
+    async (type: 'in' | 'out') => performPunch(type, 'break'),
+    [performPunch]
+  );
+
+  const toggleClockIn = useCallback(
+    async (reason?: string) => {
+      await performPunch(isCheckedIn ? 'out' : 'in', 'work', reason);
+    },
+    [isCheckedIn, performPunch]
+  );
 
   return (
     <AttendanceContext.Provider
@@ -96,6 +144,9 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         error,
         todayData,
         refreshTodayStatus,
+        punchClockIn,
+        punchClockOut,
+        punchBreak,
         toggleClockIn,
       }}
     >
