@@ -22,6 +22,20 @@ import { getStatusMeta } from '@/services/attendanceStatus';
 
 const { width } = Dimensions.get('window');
 
+interface MonthlyStat {
+  month: number;
+  present: number;
+  late: number;
+  absent: number;
+  leave: number;
+  offHoliday: number;
+  worked: number;
+  onTimePct: number;
+  latePct: number;
+  otDays: number;
+  otSeconds: number;
+}
+
 export default function AttendanceScreen() {
   const {
     isLoading: todayLoading,
@@ -81,6 +95,88 @@ export default function AttendanceScreen() {
     });
   };
 
+  // ── Statistic state & helpers ──────────────────────────────
+  const [statsYear, setStatsYear] = useState(now.getFullYear());
+  const [statsMonth, setStatsMonth] = useState(now.getMonth() + 1);
+  const [yearStats, setYearStats] = useState<MonthlyStat[]>([]);
+  const [statsLoadedFor, setStatsLoadedFor] = useState<number | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  const computeMonthStat = (items: AttendanceHistoryItem[], month: number): MonthlyStat => {
+    let present = 0, late = 0, absent = 0, leave = 0, offHoliday = 0, otDays = 0, otSeconds = 0;
+    items.forEach((it) => {
+      switch (it.status) {
+        case 'present':
+        case 'half_day':
+        case 'punched':
+          present++;
+          break;
+        case 'late':
+          late++;
+          break;
+        case 'absent':
+          absent++;
+          break;
+        case 'on_leave':
+        case 'half_day_leave':
+          leave++;
+          break;
+        case 'off':
+        case 'holiday':
+          offHoliday++;
+          break;
+        default:
+          break;
+      }
+      if (it.overtime_seconds > 0) {
+        otDays++;
+        otSeconds += it.overtime_seconds;
+      }
+    });
+    const worked = present + late;
+    return {
+      month,
+      present,
+      late,
+      absent,
+      leave,
+      offHoliday,
+      worked,
+      onTimePct: worked > 0 ? Math.round((present / worked) * 100) : 0,
+      latePct: worked > 0 ? Math.round((late / worked) * 100) : 0,
+      otDays,
+      otSeconds,
+    };
+  };
+
+  const fetchYearStats = useCallback(async (year: number) => {
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const results: MonthlyStat[] = [];
+      for (let m = 1; m <= 12; m++) {
+        const res = await attendanceService.getHistory(year, m);
+        results.push(computeMonthStat(res?.data?.data ?? [], m));
+      }
+      setYearStats(results);
+      setStatsLoadedFor(year);
+    } catch (err: any) {
+      setStatsError(err?.message || 'Failed to load statistics.');
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  const shiftStatsMonth = (delta: number) => {
+    let m = statsMonth + delta;
+    let y = statsYear;
+    if (m > 12) { m = 1; y++; }
+    if (m < 1) { m = 12; y--; }
+    setStatsMonth(m);
+    if (y !== statsYear) setStatsYear(y);
+  };
+
   // ── Status helpers ─────────────────────────────────────────
   const getStatusPillStyle = (status: string) => {
     const meta = getStatusMeta(status);
@@ -106,13 +202,60 @@ export default function AttendanceScreen() {
     }
   };
 
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear().toString());
+  useEffect(() => {
+    if (activeSegment === 'statistic' && statsLoadedFor !== statsYear) {
+      fetchYearStats(statsYear);
+    }
+  }, [activeSegment, statsYear, statsLoadedFor, fetchYearStats]);
 
   const handleSendReport = () => {
     const msg = 'Monthly attendance report sent to HR successfully!';
     if (Platform.OS === 'web') alert(msg);
     else Alert.alert('Report Sent', msg);
   };
+
+  // ── Statistic derived values ───────────────────────────────
+  const focusStat = yearStats.find((s) => s.month === statsMonth) ?? null;
+  const prevStat = statsMonth > 1 ? yearStats.find((s) => s.month === statsMonth - 1) ?? null : null;
+  const totalDays = focusStat
+    ? focusStat.worked + focusStat.absent + focusStat.leave + focusStat.offHoliday
+    : 0;
+  const attendancePct =
+    focusStat && totalDays > 0 ? Math.round((focusStat.worked / totalDays) * 100) : 0;
+  const leaveOffPct =
+    focusStat && totalDays > 0
+      ? Math.round(((focusStat.leave + focusStat.offHoliday) / totalDays) * 100)
+      : 0;
+  const punctualityDiff =
+    focusStat && prevStat && prevStat.worked > 0 ? focusStat.onTimePct - prevStat.onTimePct : null;
+
+  const bars = yearStats.map((s) => ({
+    m: monthNames[s.month - 1],
+    h1: Math.round(s.onTimePct * 0.95),
+    h2: Math.round(s.latePct * 0.95),
+  }));
+
+  const highlightPct =
+    punctualityDiff !== null ? `${Math.abs(punctualityDiff)}%` : focusStat ? `${focusStat.onTimePct}%` : null;
+  const bannerLead = !focusStat
+    ? ''
+    : punctualityDiff === null
+    ? 'Your on-time rate is '
+    : punctualityDiff >= 0
+    ? 'Great! Your punctuality increased '
+    : 'Heads up — your punctuality dropped ';
+  const bannerTail = !focusStat
+    ? 'Choose a month to see your punctuality.'
+    : punctualityDiff === null
+    ? '. Keep it up!'
+    : ' from last month. Keep it up!';
+
+  const otHoursText =
+    focusStat && focusStat.otSeconds > 0
+      ? focusStat.otSeconds / 3600 >= 1
+        ? `${(focusStat.otSeconds / 3600).toFixed(1)} hrs`
+        : `${Math.max(1, Math.round((focusStat.otSeconds / 3600) * 60))} min`
+      : null;
 
   return (
     <ScreenWrapper>
@@ -420,100 +563,154 @@ export default function AttendanceScreen() {
       {/* SEGMENT 3: STATISTIC VIEW */}
       {activeSegment === 'statistic' && (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Year Filter */}
-          <TouchableOpacity style={styles.filterDropdown} activeOpacity={0.8}>
-            <Ionicons name="calendar-outline" size={18} color="#0041E8" />
-            <Text style={styles.filterDropdownText}>{selectedYear}</Text>
-            <Ionicons name="chevron-down" size={16} color="#0041E8" />
-          </TouchableOpacity>
-
-          {/* Inspirational Punctuality Banner */}
-          <View style={styles.punctualityBanner}>
-            <View style={styles.bannerIconCircle}>
-              <Ionicons name="trending-up" size={24} color="#FFF" />
-            </View>
-            <Text style={styles.bannerText}>
-              It is great! Your punctuality increased <Text style={styles.bannerHighlight}>10%</Text> from last
-              month. Keep it up!
+          {/* Month / Year Navigator */}
+          <View style={styles.monthNav}>
+            <TouchableOpacity onPress={() => shiftStatsMonth(-1)} style={styles.monthNavBtn}>
+              <Ionicons name="chevron-back" size={18} color="#0041E8" />
+            </TouchableOpacity>
+            <Text style={styles.filterDropdownText}>
+              {monthNames[statsMonth - 1]} {statsYear}
             </Text>
+            <TouchableOpacity
+              onPress={() => shiftStatsMonth(1)}
+              style={styles.monthNavBtn}
+              disabled={statsYear === now.getFullYear() && statsMonth === now.getMonth() + 1}
+            >
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={
+                  statsYear === now.getFullYear() && statsMonth === now.getMonth() + 1
+                    ? '#CBD5E1'
+                    : '#0041E8'
+                }
+              />
+            </TouchableOpacity>
           </View>
 
-          {/* Monthly Bar Chart */}
-          <View style={styles.chartCard}>
-            <Text style={styles.cardTitle}>Monthly Punctuality Overview</Text>
-            <View style={styles.barChartRow}>
-              {[
-                { m: 'Jan', h1: 65, h2: 30 },
-                { m: 'Feb', h1: 85, h2: 15 },
-                { m: 'Mar', h1: 50, h2: 20 },
-                { m: 'Apr', h1: 70, h2: 10 },
-                { m: 'May', h1: 40, h2: 25 },
-                { m: 'Jun', h1: 60, h2: 15 },
-                { m: 'Jul', h1: 75, h2: 20 },
-                { m: 'Aug', h1: 80, h2: 10 },
-                { m: 'Sep', h1: 65, h2: 15 },
-                { m: 'Oct', h1: 70, h2: 10 },
-                { m: 'Nov', h1: 60, h2: 20 },
-                { m: 'Dec', h1: 90, h2: 10 },
-              ].map((item, idx) => (
-                <View key={idx} style={styles.barCol}>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barStackRed, { height: item.h2 }]} />
-                    <View style={[styles.barStackBlue, { height: item.h1 }]} />
+          {/* Loading */}
+          {statsLoading && (
+            <View style={styles.centerState}>
+              <ActivityIndicator size="large" color="#0041E8" />
+              <Text style={styles.centerStateText}>Loading statistics…</Text>
+            </View>
+          )}
+
+          {/* Error */}
+          {!statsLoading && statsError && (
+            <View style={styles.centerState}>
+              <Ionicons name="alert-circle-outline" size={40} color="#DC2626" />
+              <Text style={[styles.centerStateText, { color: '#DC2626' }]}>{statsError}</Text>
+              <TouchableOpacity
+                style={[styles.primaryActionButton, { marginTop: 12, paddingHorizontal: 24, height: 40 }]}
+                onPress={() => fetchYearStats(statsYear)}
+              >
+                <Text style={styles.primaryActionButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!statsLoading && !statsError && (
+            <>
+              {/* Punctuality Banner */}
+              <View style={styles.punctualityBanner}>
+                <View style={styles.bannerIconCircle}>
+                  <Ionicons
+                    name={punctualityDiff === null || punctualityDiff >= 0 ? 'trending-up' : 'trending-down'}
+                    size={24}
+                    color="#FFF"
+                  />
+                </View>
+                <Text style={styles.bannerText}>
+                  {bannerLead}
+                  {highlightPct && <Text style={styles.bannerHighlight}>{highlightPct}</Text>}
+                  {bannerTail}
+                </Text>
+              </View>
+
+              {/* Monthly Bar Chart (real per-month data) */}
+              <View style={styles.chartCard}>
+                <Text style={styles.cardTitle}>Monthly Punctuality Overview ({statsYear})</Text>
+                <View style={styles.barChartRow}>
+                  {bars.map((item, idx) => (
+                    <View key={idx} style={styles.barCol}>
+                      <View style={styles.barTrack}>
+                        <View style={[styles.barStackRed, { height: item.h2 }]} />
+                        <View style={[styles.barStackBlue, { height: item.h1 }]} />
+                      </View>
+                      <Text
+                        style={[
+                          styles.barLabel,
+                          item.m === monthNames[statsMonth - 1] && { color: '#0041E8', fontWeight: '800' },
+                        ]}
+                      >
+                        {item.m}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Legend */}
+                <View style={styles.legendRow}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#0041E8' }]} />
+                    <Text style={styles.legendText}>On Time</Text>
                   </View>
-                  <Text style={styles.barLabel}>{item.m}</Text>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#DC2626' }]} />
+                    <Text style={styles.legendText}>Late</Text>
+                  </View>
                 </View>
-              ))}
-            </View>
-
-            {/* Legend */}
-            <View style={styles.legendRow}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#0041E8' }]} />
-                <Text style={styles.legendText}>On Time</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#DC2626' }]} />
-                <Text style={styles.legendText}>Late / Overtime</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Approved Request Statistic Section */}
-          <View style={styles.statsCard}>
-            <Text style={styles.cardTitle}>Approved Request Statistic</Text>
-            <View style={styles.ringsRow}>
-              {/* Leave Ring */}
-              <View style={styles.ringCard}>
-                <View style={[styles.ringCircle, { borderColor: '#F43F5E' }]}>
-                  <Text style={[styles.ringPercentText, { color: '#F43F5E' }]}>70%</Text>
-                </View>
-                <Text style={styles.ringTitle}>Leave</Text>
-                <Text style={styles.ringSubApproved}>20 Approved</Text>
-                <Text style={styles.ringSubRejected}>8 Rejected</Text>
               </View>
 
-              {/* Overtime Ring */}
-              <View style={styles.ringCard}>
-                <View style={[styles.ringCircle, { borderColor: '#10B981' }]}>
-                  <Text style={[styles.ringPercentText, { color: '#10B981' }]}>70%</Text>
-                </View>
-                <Text style={styles.ringTitle}>Overtime</Text>
-                <Text style={styles.ringSubApproved}>12 Approved</Text>
-                <Text style={styles.ringSubRejected}>4 Rejected</Text>
-              </View>
+              {/* Attendance Statistic (real data) */}
+              <View style={styles.statsCard}>
+                <Text style={styles.cardTitle}>
+                  Attendance Statistic — {monthNames[statsMonth - 1]} {statsYear}
+                </Text>
+                <View style={styles.ringsRow}>
+                  {/* Attendance Ring */}
+                  <View style={styles.ringCard}>
+                    <View style={[styles.ringCircle, { borderColor: '#F43F5E' }]}>
+                      <Text style={[styles.ringPercentText, { color: '#F43F5E' }]}>{attendancePct}%</Text>
+                    </View>
+                    <Text style={styles.ringTitle}>Attendance</Text>
+                    <Text style={styles.ringSubApproved}>{focusStat?.worked ?? 0} Present</Text>
+                    <Text style={styles.ringSubRejected}>{focusStat?.absent ?? 0} Absent</Text>
+                  </View>
 
-              {/* Claim Ring */}
-              <View style={styles.ringCard}>
-                <View style={[styles.ringCircle, { borderColor: '#EAB308' }]}>
-                  <Text style={[styles.ringPercentText, { color: '#EAB308' }]}>100%</Text>
+                  {/* Punctuality Ring */}
+                  <View style={styles.ringCard}>
+                    <View style={[styles.ringCircle, { borderColor: '#10B981' }]}>
+                      <Text style={[styles.ringPercentText, { color: '#10B981' }]}>
+                        {focusStat?.onTimePct ?? 0}%
+                      </Text>
+                    </View>
+                    <Text style={styles.ringTitle}>Punctuality</Text>
+                    <Text style={styles.ringSubApproved}>{focusStat?.present ?? 0} On time</Text>
+                    <Text style={styles.ringSubRejected}>{focusStat?.late ?? 0} Late</Text>
+                  </View>
+
+                  {/* Leave & Off Ring */}
+                  <View style={styles.ringCard}>
+                    <View style={[styles.ringCircle, { borderColor: '#EAB308' }]}>
+                      <Text style={[styles.ringPercentText, { color: '#EAB308' }]}>{leaveOffPct}%</Text>
+                    </View>
+                    <Text style={styles.ringTitle}>Leave & Off</Text>
+                    <Text style={styles.ringSubApproved}>{focusStat?.leave ?? 0} Leave</Text>
+                    <Text style={styles.ringSubRejected}>{focusStat?.offHoliday ?? 0} Off</Text>
+                  </View>
                 </View>
-                <Text style={styles.ringTitle}>Claim</Text>
-                <Text style={styles.ringSubApproved}>12 Approved</Text>
-                <Text style={styles.ringSubRejected}>0 Rejected</Text>
+
+                {otHoursText && focusStat && (
+                  <Text style={styles.otSummary}>
+                    + {otHoursText} overtime across {focusStat.otDays} day
+                    {focusStat.otDays === 1 ? '' : 's'}
+                  </Text>
+                )}
               </View>
-            </View>
-          </View>
+            </>
+          )}
         </ScrollView>
       )}
     </ScreenWrapper>
@@ -1012,6 +1209,12 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: '600',
     marginTop: 2,
+  },
+  otSummary: {
+    marginTop: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
   },
 
   /* Expandable history card detail styles */
