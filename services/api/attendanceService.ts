@@ -81,6 +81,15 @@ export interface AttendanceHistoryItem {
   event: string | null;     // 'Leave'|'Travel'|'Training'|null
   is_flagged: boolean;
   is_off_day_punch: boolean;
+  flag_reason?: string | null;
+  segment_count?: number;
+  segments?: AttendanceSegment[];
+  early_in_seconds?: number;
+  early_in_formatted?: string;
+  early_exit_seconds?: number;
+  early_formatted?: string;
+  late_out_seconds?: number;
+  late_out_formatted?: string;
 }
 
 export interface AttendanceHistoryResponse {

@@ -36,6 +36,7 @@ export default function AttendanceScreen() {
   const [historyData,  setHistoryData]  = useState<AttendanceHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError,   setHistoryError]   = useState<string | null>(null);
+  const [expandedRows,   setExpandedRows]   = useState<Set<string>>(new Set());
 
   const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -69,6 +70,15 @@ export default function AttendanceScreen() {
     if (m < 1)  { m = 12; y--; }
     setHistoryMonth(m);
     setHistoryYear(y);
+  };
+
+  const toggleExpand = (date: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
   };
 
   // ── Status helpers ─────────────────────────────────────────
@@ -213,13 +223,31 @@ export default function AttendanceScreen() {
               const isAbsent = item.status === 'absent';
               const pill = getStatusPillStyle(item.status);
               const dayAbbr = item.day_name.slice(0, 3).toUpperCase();
+              const isExpanded = expandedRows.has(item.log_date);
               // Format date nicely: '02 Sep, 2026'
               const dateObj = new Date(item.log_date + 'T00:00:00');
               const dateFormatted = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+              const segments = item.segments ?? [];
+
+              const extraStats = !isOffOrHoliday && !isAbsent
+                ? [
+                    { label: 'Late In',   value: item.late_seconds > 0 ? item.late_formatted : '—',   color: '#D97706' },
+                    { label: 'Early In',  value: (item.early_in_seconds ?? 0) > 0 ? item.early_in_formatted ?? '—' : '—', color: '#0284C7' },
+                    { label: 'Late Out',  value: (item.late_out_seconds ?? 0) > 0 ? item.late_out_formatted ?? '—' : '—', color: '#DC2626' },
+                    { label: 'Early Out', value: (item.early_exit_seconds ?? 0) > 0 ? item.early_formatted ?? '—' : '—', color: '#EA580C' },
+                    { label: 'OT',        value: item.overtime_seconds > 0 ? item.ot_formatted : '—', color: '#2563EB' },
+                  ]
+                : [];
 
               return (
-                <View key={item.log_date} style={styles.historyCard}>
-                  <View style={styles.dayCol}>
+                <TouchableOpacity
+                  key={item.log_date}
+                  style={[styles.historyCard, isExpanded && styles.historyCardExpanded]}
+                  activeOpacity={0.8}
+                  onPress={() => toggleExpand(item.log_date)}
+                >
+                  <View style={styles.historyTopRow}>
+                    <View style={styles.dayCol}>
                     <Text style={[
                       styles.dayName,
                       (isOffOrHoliday || isAbsent) && { color: '#94A3B8' },
@@ -228,6 +256,14 @@ export default function AttendanceScreen() {
                     {item.shift_name && (
                       <Text style={styles.shiftLabel}>{item.shift_name}</Text>
                     )}
+                    {(item.segment_count ?? segments.length) > 1 && (
+                      <View style={styles.segCountPill}>
+                        <Text style={styles.segCountText}>{item.segment_count ?? segments.length}×</Text>
+                      </View>
+                    )}
+                    <View style={styles.expandChevron}>
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color="#94A3B8" />
+                    </View>
                   </View>
 
                   <View style={styles.detailsCol}>
@@ -276,7 +312,76 @@ export default function AttendanceScreen() {
                       </>
                     )}
                   </View>
-                </View>
+                  </View>
+
+                  {/* ── Expanded details ─────────────────────────── */}
+                  {isExpanded && (
+                    <View style={styles.expandedWrap}>
+                      {item.is_flagged && (
+                        <View style={styles.flagWarning}>
+                          <Ionicons name="alert-circle" size={15} color="#DC2626" />
+                          <Text style={styles.flagWarningText}>{item.flag_reason ?? 'Attendance flagged'}</Text>
+                        </View>
+                      )}
+
+                      {/* Late / Early / OT statistics grid */}
+                      {extraStats.length > 0 && (
+                        <View style={styles.statGrid}>
+                          {extraStats.map((s) => (
+                            <View key={s.label} style={styles.statCell}>
+                              <Text style={styles.statCellLabel}>{s.label}</Text>
+                              <Text style={[styles.statCellValue, s.value === '—' ? { color: '#CBD5E1' } : { color: s.color }]}>
+                                {s.value}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Punch segments */}
+                      {segments.length > 0 && (
+                        <View style={styles.segDetailCard}>
+                          <View style={styles.segDetailHeader}>
+                            <Text style={styles.segDetailTitle}>PUNCH DETAILS</Text>
+                            <View style={styles.segDetailCount}>
+                              <Text style={styles.segDetailCountText}>{segments.length}</Text>
+                            </View>
+                          </View>
+                          {segments.map((s, i) => {
+                            const isBreak = s.is_break || s.type === 'break';
+                            return (
+                              <View key={`${item.log_date}-seg-${i}`} style={styles.segRow}>
+                                <View style={[styles.segRowDot, isBreak && styles.segRowDotBreak]}>
+                                  <Ionicons name={isBreak ? 'cafe' : 'time'} size={12} color="#FFF" />
+                                </View>
+                                <View style={styles.segRowBody}>
+                                  <View style={styles.segRowTop}>
+                                    <Text style={[styles.segRowType, isBreak && styles.segRowTypeBreak]}>
+                                      {isBreak ? 'Break' : `Punch ${i + 1}`}
+                                    </Text>
+                                    <Text style={styles.segRowTimes}>
+                                      {s.segment_in ?? '—'} {'→'} {s.is_open ? <Text style={styles.segmentOngoing}>ongoing</Text> : (s.segment_out ?? '—')}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.segRowBottom}>
+                                    <Text style={styles.segRowDuration}>{s.is_open ? 'In progress' : (s.duration_formatted ?? '—')}</Text>
+                                    {(s.in_reason || s.out_reason) && (
+                                      <Text style={styles.segRowReasons} numberOfLines={2}>
+                                        {s.in_reason ? `In: ${s.in_reason}` : ''}
+                                        {s.in_reason && s.out_reason ? ' · ' : ''}
+                                        {s.out_reason ? `Out: ${s.out_reason}` : ''}
+                                      </Text>
+                                    )}
+                                  </View>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </TouchableOpacity>
               );
             })}
           </ScrollView>
@@ -503,7 +608,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   historyCard: {
-    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
@@ -513,6 +617,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
+  },
+  historyTopRow: {
+    flexDirection: 'row',
   },
   dayCol: {
     width: 85,
@@ -905,5 +1012,177 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: '600',
     marginTop: 2,
+  },
+
+  /* Expandable history card detail styles */
+  historyCardExpanded: {
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  segCountPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F1F5F9',
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 4,
+  },
+  segCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  expandChevron: {
+    marginTop: 6,
+  },
+  expandedWrap: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  flagWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: Radius.md,
+    padding: 10,
+    marginBottom: 12,
+  },
+  flagWarningText: {
+    flex: 1,
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  statGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 12,
+  },
+  statCell: {
+    width: '46%',
+    flexGrow: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  statCellLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+  statCellValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  segDetailCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    paddingTop: 10,
+  },
+  segDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  segDetailTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: '#64748B',
+  },
+  segDetailCount: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  segDetailCountText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  segRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 9,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F1F5F9',
+  },
+  segRowDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  segRowDotBreak: {
+    backgroundColor: '#F59E0B',
+  },
+  segRowBody: {
+    flex: 1,
+  },
+  segRowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  segRowType: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  segRowTypeBreak: {
+    color: '#B45309',
+  },
+  segRowTimes: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+    fontVariant: ['tabular-nums'],
+  },
+  segRowBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 3,
+  },
+  segRowDuration: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  segmentOngoing: {
+    color: '#B45309',
+    fontWeight: '700',
+  },
+  segRowReasons: {
+    flex: 1,
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 14,
+    textAlign: 'right',
   },
 });
