@@ -31,7 +31,11 @@ function getTodayStatusPill(data: TodayAttendanceData | null) {
   return { label, bg: meta.bg, text: meta.text };
 }
 
-export default function AttendancePanel() {
+type Props = {
+  locationName?: string;
+};
+
+export default function AttendancePanel({ locationName = 'Mobile punch' }: Props) {
   const {
     todayData,
     isLoading: todayLoading,
@@ -40,7 +44,7 @@ export default function AttendancePanel() {
     punchClockOut,
     punchBreak,
   } = useAttendance();
-  const { timeStr, dateStr } = useLiveClock('24h');
+  const { timeStr, dateStr } = useLiveClock('12h');
 
   const [punching, setPunching] = useState(false);
   const [breaking, setBreaking] = useState(false);
@@ -51,6 +55,7 @@ export default function AttendancePanel() {
   const canClockIn = todayData?.can_clock_in;
   const canClockOut = todayData?.can_clock_out;
   const punchType: 'in' | 'out' = canClockOut ? 'out' : 'in';
+  const isCheckedIn = !!canClockOut;
 
   const todaySegments = todayData?.segments ?? [];
   const lastSeg = todaySegments[todaySegments.length - 1];
@@ -124,199 +129,205 @@ export default function AttendancePanel() {
 
   return (
     <View style={styles.container}>
-      {/* Live clock card */}
-      <View style={styles.liveClockCard}>
-        <Text style={styles.liveClockLabel}>LIVE CLOCK</Text>
-        <Text style={styles.liveClockTime}>{timeStr}</Text>
-        <Text style={styles.liveClockDate}>{dateStr}</Text>
-        {todayData?.shift_name && (
-          <View style={styles.shiftPill}>
-            <Ionicons name="timer-outline" size={13} color={Colors.card} />
-            <Text style={styles.shiftPillText}>
-              {todayData.shift_name} ({todayData.shift_start_time?.slice(0, 5)} — {todayData.end_start_time?.slice(0, 5)})
-            </Text>
-          </View>
-        )}
+      {/* ── Clock & Date ─────────────────────────────────────── */}
+      <View style={styles.clockSection}>
+        <Text style={styles.clockText}>{timeStr}</Text>
+        <Text style={styles.dateText}>{dateStr}</Text>
       </View>
 
       {/* Holiday / Off / Late banners */}
       {todayData?.day_type === 'holiday' && (
         <View style={[styles.banner, styles.bannerHoliday]}>
-          <Text style={styles.bannerTextOrange}>
+          <Text style={[styles.bannerText, styles.bannerTextOrange]}>
             🎉 Today is your Holiday{todayData.holiday_name ? ` (${todayData.holiday_name})` : ''}
           </Text>
         </View>
       )}
       {todayData?.day_type === 'off' && (
         <View style={[styles.banner, styles.bannerOff]}>
-          <Text style={styles.bannerTextMuted}>☕ Today is your Day Off</Text>
+          <Text style={[styles.bannerText, styles.bannerTextMuted]}>☕ Today is your Day Off</Text>
         </View>
       )}
       {todayData?.late_formatted && (
         <View style={[styles.banner, styles.bannerLate]}>
           <Ionicons name="warning-outline" size={16} color={Colors.warning} />
-          <Text style={styles.bannerTextWarning}>
+          <Text style={[styles.bannerText, styles.bannerTextWarning]}>
             You are <Text style={{ fontWeight: '800' }}>{todayData.late_formatted}</Text> late
           </Text>
         </View>
       )}
 
-      {/* Stat pills */}
-      {todayLoading && !todayData ? (
-        <View style={styles.statRow}>
-          {[0, 1, 2].map((i) => (
-            <View key={i} style={styles.statCard}>
-              <ActivityIndicator size="small" color="#CBD5E1" />
-            </View>
-          ))}
-        </View>
-      ) : (
-        <View style={styles.statRow}>
-          {[
-            { label: 'Clock In', value: todayData?.actual_in ?? '—', color: Colors.success },
-            { label: 'Clock Out', value: todayData?.actual_out ?? '—', color: Colors.orange },
-            { label: 'Worked', value: todayData?.worked_formatted ?? '—', color: Colors.sky },
-          ].map((s) => (
-            <View key={s.label} style={styles.statCard}>
-              <Text style={[styles.statLabel, { color: s.color }]}>{s.label}</Text>
-              <Text style={styles.statValue}>{s.value}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
       {/* Flag warning */}
       {todayData?.is_flagged && (
-        <View style={styles.flagWarning}>
-          <Ionicons name="alert-circle" size={18} color={Colors.danger} />
-          <Text style={styles.flagWarningText}>{todayData.flag_reason ?? 'Attendance flagged'}</Text>
+        <View style={[styles.warningBox, styles.warningDanger]}>
+          <Ionicons name="alert-circle" size={17} color={Colors.danger} />
+          <Text style={[styles.warningText, { color: Colors.danger }]}>
+            {todayData.flag_reason ?? 'Attendance flagged'}
+          </Text>
         </View>
       )}
 
       {/* Punch warning / network error */}
       {(warningMsg || todayError) && (
-        <View style={[styles.flagWarning, styles.warningInverse]}>
-          <Ionicons name="information-circle" size={18} color={Colors.warning} />
-          <Text style={[styles.flagWarningText, { color: Colors.warning }]}>{warningMsg ?? todayError}</Text>
+        <View style={[styles.warningBox, styles.warningGeneral]}>
+          <Ionicons name="information-circle" size={17} color={Colors.warning} />
+          <Text style={[styles.warningText, { color: Colors.warning }]}>{warningMsg ?? todayError}</Text>
         </View>
       )}
 
-      {!isOnBreak && (
-        <>
-          {/* Reason input */}
-          {showReasonInput || isReasonRequired ? (
-            <View style={styles.reasonBox}>
-              <View style={styles.reasonHeader}>
-                <Text style={styles.reasonLabel}>
-                  Reason{isReasonRequired ? <Text style={{ color: Colors.danger }}> *</Text> : null}
-                </Text>
-                {isReasonRequired && (
-                  <View style={styles.reasonRequiredTag}>
-                    <Text style={styles.reasonRequiredTagText}>
-                      {punchType === 'in' ? 'Late clock-in' : 'Early clock-out'}
-                    </Text>
-                  </View>
+      {/* ── Punch Section ────────────────────────────────────── */}
+      <View style={styles.punchSection}>
+        {!isOnBreak && (
+          <>
+            {/* Reason input */}
+            {showReasonInput || isReasonRequired ? (
+              <View style={styles.reasonBox}>
+                <View style={styles.reasonHeader}>
+                  <Text style={styles.reasonLabel}>
+                    Reason{isReasonRequired ? <Text style={{ color: Colors.danger }}> *</Text> : null}
+                  </Text>
+                  {isReasonRequired && (
+                    <View style={styles.reasonRequiredTag}>
+                      <Text style={styles.reasonRequiredTagText}>
+                        {punchType === 'in' ? 'Late clock-in' : 'Early clock-out'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <TextInput
+                  style={styles.reasonInput}
+                  value={reason}
+                  onChangeText={setReason}
+                  placeholder={
+                    isReasonRequired
+                      ? punchType === 'in'
+                        ? 'Why are you clocking in late?'
+                        : 'Why are you clocking out early?'
+                      : 'e.g. Client site visit, forgot badge...'
+                  }
+                  placeholderTextColor={Colors.textPlaceholder}
+                  maxLength={255}
+                  multiline
+                />
+                {showReasonInput && !isReasonRequired && (
+                  <TouchableOpacity style={styles.reasonRemoveBtn} onPress={() => { setShowReasonInput(false); setReason(''); }}>
+                    <Text style={styles.reasonRemoveText}>Remove reason</Text>
+                  </TouchableOpacity>
                 )}
               </View>
-              <TextInput
-                style={styles.reasonInput}
-                value={reason}
-                onChangeText={setReason}
-                placeholder={
-                  isReasonRequired
-                    ? punchType === 'in'
-                      ? 'Why are you clocking in late?'
-                      : 'Why are you clocking out early?'
-                    : 'e.g. Client site visit, forgot badge...'
-                }
-                placeholderTextColor={Colors.textPlaceholder}
-                maxLength={255}
-                multiline
-              />
-              {showReasonInput && !isReasonRequired && (
-                <TouchableOpacity style={styles.reasonRemoveBtn} onPress={() => { setShowReasonInput(false); setReason(''); }}>
-                  <Text style={styles.reasonRemoveText}>Remove reason</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.addReasonBtn} onPress={() => setShowReasonInput(true)}>
-              <Ionicons name="chatbubble-ellipses-outline" size={14} color={Colors.textMuted} />
-              <Text style={styles.addReasonText}>Add a reason (optional)</Text>
-            </TouchableOpacity>
-          )}
+            ) : (
+              <TouchableOpacity style={styles.addReasonBtn} onPress={() => setShowReasonInput(true)}>
+                <Ionicons name="chatbubble-ellipses-outline" size={14} color={Colors.textMuted} />
+                <Text style={styles.addReasonText}>Add a reason (optional)</Text>
+              </TouchableOpacity>
+            )}
 
-          {/* Punch button */}
+            {isReasonRequired && !reason.trim() && (
+              <Text style={styles.reasonHint}>Enter a reason above to continue</Text>
+            )}
+          </>
+        )}
+
+        {/* Circular punch button */}
+        <View style={styles.punchArea}>
+          <View style={[styles.dashedRing, isCheckedIn && styles.dashedRingOut]}>
+            <TouchableOpacity
+              style={[
+                styles.punchButton,
+                isCheckedIn ? styles.punchButtonOut : styles.punchButtonIn,
+                isPunchDisabled && styles.punchDisabled,
+              ]}
+              activeOpacity={0.85}
+              disabled={isPunchDisabled}
+              onPress={handlePunch}
+            >
+              {punching || (todayLoading && !todayData) ? (
+                <ActivityIndicator color={Colors.card} size="large" />
+              ) : (
+                <>
+                  <Ionicons name="hand-left-outline" size={40} color={Colors.card} />
+                  <Text style={styles.punchLabel}>
+                    {todayLoading ? 'Loading' : isCheckedIn ? 'Day Out' : 'Day In'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Break button — only when clocked in or on break */}
+        {(canClockOut || isOnBreak) && (
           <TouchableOpacity
-            style={[
-              styles.punchButton,
-              punchType === 'out' && { backgroundColor: Colors.orange },
-              isPunchDisabled && { opacity: 0.5 },
-            ]}
-            activeOpacity={0.88}
-            disabled={isPunchDisabled}
-            onPress={handlePunch}
+            style={[styles.breakButton, isOnBreak && styles.breakButtonActive]}
+            activeOpacity={0.9}
+            disabled={breaking}
+            onPress={handleBreakPunch}
           >
-            {punching ? (
-              <ActivityIndicator color="#FFF" />
-            ) : todayLoading ? (
-              <Text style={styles.punchButtonText}>LOADING…</Text>
+            {breaking ? (
+              <ActivityIndicator size="small" color={isOnBreak ? Colors.warning : Colors.textSecondary} />
             ) : (
               <>
                 <Ionicons
-                  name={punchType === 'out' ? 'log-out' : 'log-in'}
-                  size={18}
-                  color="#FFF"
-                  style={{ marginRight: 8 }}
+                  name={isOnBreak ? 'timer' : 'timer-outline'}
+                  size={17}
+                  color={isOnBreak ? Colors.warning : Colors.textSecondary}
                 />
-                <Text style={styles.punchButtonText}>
-                  {punchType === 'out' ? 'CLOCK OUT' : 'CLOCK IN'}
+                <Text style={[styles.breakButtonText, isOnBreak && styles.breakButtonTextActive]}>
+                  {isOnBreak ? 'END BREAK' : 'START BREAK'}
                 </Text>
               </>
             )}
           </TouchableOpacity>
+        )}
 
-          {isReasonRequired && !reason.trim() && (
-            <Text style={styles.reasonHint}>Enter a reason above to continue</Text>
-          )}
-        </>
-      )}
+        {/* On break indicator */}
+        {isOnBreak && (
+          <View style={styles.onBreakBadge}>
+            <View style={styles.onBreakDot} />
+            <Text style={styles.onBreakText}>On Break</Text>
+          </View>
+        )}
 
-      {/* Break button — only when clocked in or on break */}
-      {(canClockOut || isOnBreak) && (
-        <TouchableOpacity
-          style={[styles.breakButton, isOnBreak && styles.breakButtonActive]}
-          activeOpacity={0.9}
-          disabled={breaking}
-          onPress={handleBreakPunch}
-        >
-          {breaking ? (
-            <ActivityIndicator size="small" color={isOnBreak ? Colors.warning : Colors.textSecondary} />
-          ) : (
-            <>
-              <Ionicons
-                name={isOnBreak ? 'timer' : 'timer-outline'}
-                size={17}
-                color={isOnBreak ? Colors.warning : Colors.textSecondary}
-                style={{ marginRight: 8 }}
-              />
-              <Text style={[styles.breakButtonText, isOnBreak && styles.breakButtonTextActive]}>
-                {isOnBreak ? 'END BREAK' : 'START BREAK'}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
-
-      {/* On break indicator */}
-      {isOnBreak && (
-        <View style={styles.onBreakBadge}>
-          <View style={styles.onBreakDot} />
-          <Text style={styles.onBreakText}>On Break</Text>
+        {/* ── Location ─────────────────────────────────────────── */}
+        <View style={styles.locationRow}>
+          <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
+          <Text style={styles.locationText}>{locationName}</Text>
         </View>
-      )}
+      </View>
 
-      {/* Today's segments */}
+      {/* ── Day In / Day Out Cards ───────────────────────────── */}
+      <View style={styles.infoRow}>
+        <View style={styles.infoCard}>
+          <View style={styles.infoCardHeader}>
+            <Ionicons name="log-in-outline" size={16} color={Colors.success} />
+            <Text style={styles.infoCardTitle}>Day In</Text>
+          </View>
+          <Text style={[styles.infoCardValue, { color: Colors.success }]}>
+            {todayLoading ? '—' : (todayData?.actual_in ?? '--:--')}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <View style={styles.infoCardHeader}>
+            <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
+            <Text style={styles.infoCardTitle}>Day Out</Text>
+          </View>
+          <Text style={[styles.infoCardValue, { color: Colors.danger }]}>
+            {todayLoading ? '—' : (todayData?.actual_out ?? '--:--')}
+          </Text>
+        </View>
+      </View>
+
+      {/* ── Total Hours ──────────────────────────────────────── */}
+      <View style={styles.totalHoursRow}>
+        <Ionicons name="time-outline" size={14} color={Colors.primary} />
+        <Text style={styles.totalHoursText}>Total Hours Today: </Text>
+        <Text style={styles.totalHoursValue}>
+          {todayLoading ? '—' : (todayData?.worked_formatted ?? '00h 00m')}
+        </Text>
+      </View>
+
+      {/* ── Today's segments ─────────────────────────────────── */}
       {todaySegments.length > 0 && (
         <View style={styles.segmentsCard}>
           <Text style={styles.segmentsTitle}>{"TODAY'S PUNCHES"}</Text>
@@ -339,9 +350,9 @@ export default function AttendancePanel() {
         </View>
       )}
 
-      {/* Status badge */}
+      {/* ── Status badge ─────────────────────────────────────── */}
       {todayData?.status && (
-        <View style={[styles.statusPill, { backgroundColor: statusPill.bg, marginTop: isOnBreak ? 4 : 12 }]}>
+        <View style={[styles.statusPill, { backgroundColor: statusPill.bg }]}>
           <Text style={[styles.statusPillText, { color: statusPill.text }]}>
             {statusPill.label.toUpperCase()}
             {todayData.status === 'holiday' && todayData.holiday_name ? ` · ${todayData.holiday_name}` : ''}
@@ -357,60 +368,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
-  liveClockCard: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
-    paddingVertical: 22,
-    paddingHorizontal: 16,
+
+  clockSection: {
     alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 5,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  liveClockLabel: {
-    color: '#DBEAFE',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-  },
-  liveClockTime: {
-    color: '#FFFFFF',
-    fontSize: 42,
+  clockText: {
+    fontSize: 44,
     fontWeight: '800',
-    marginTop: 6,
+    color: Colors.text,
+    letterSpacing: 1,
     fontVariant: ['tabular-nums'],
   },
-  liveClockDate: {
-    color: '#DBEAFE',
+  dateText: {
     fontSize: 14,
+    color: Colors.textMuted,
     fontWeight: '500',
     marginTop: 4,
   },
-  shiftPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: Radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginTop: 14,
-  },
-  shiftPillText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderRadius: Radius.md,
-    padding: 14,
-    marginBottom: 12,
+    padding: 12,
+    marginTop: 10,
   },
   bannerHoliday: {
     backgroundColor: '#FFF7ED',
@@ -427,77 +411,64 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
-  bannerTextOrange: {
-    color: Colors.orange,
+  bannerText: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    flex: 1,
+  },
+  bannerTextOrange: {
+    color: Colors.orange,
   },
   bannerTextMuted: {
     color: Colors.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
   },
   bannerTextWarning: {
     color: Colors.warning,
-    fontSize: 13,
-    fontWeight: '500',
-    flex: 1,
   },
-  statRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    minHeight: 58,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  statValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Colors.text,
-    marginTop: 4,
-  },
-  flagWarning: {
+
+  warningBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: Colors.dangerLight,
     borderWidth: 1,
-    borderColor: '#FECACA',
     borderRadius: Radius.md,
     padding: 12,
-    marginBottom: 12,
+    marginTop: 10,
   },
-  warningInverse: {
+  warningDanger: {
+    backgroundColor: Colors.dangerLight,
+    borderColor: '#FECACA',
+  },
+  warningGeneral: {
     backgroundColor: Colors.warningLight,
     borderColor: '#FDE68A',
   },
-  flagWarningText: {
-    color: Colors.danger,
+  warningText: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '500',
-    flex: 1,
   },
+
+  punchSection: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    marginTop: 14,
+    paddingTop: 2,
+    ...{
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+  },
+
   addReasonBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
   },
   addReasonText: {
     fontSize: 12,
@@ -505,12 +476,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   reasonBox: {
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.bg,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
     padding: 12,
-    marginBottom: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
   },
   reasonHeader: {
     flexDirection: 'row',
@@ -535,7 +507,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   reasonInput: {
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.card,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -561,36 +533,53 @@ const styles = StyleSheet.create({
     color: Colors.warning,
     marginTop: 8,
     fontWeight: '600',
+    paddingHorizontal: 16,
   },
-  punchButton: {
-    backgroundColor: Colors.success,
-    height: 54,
-    borderRadius: Radius.md,
+
+  punchArea: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  dashedRing: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 3,
+    borderStyle: 'dashed',
+    borderColor: '#86EFAC',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  punchButtonText: {
-    color: '#FFFFFF',
+  dashedRingOut: { borderColor: '#FCA5A5' },
+  punchButton: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  punchButtonIn:  { backgroundColor: Colors.success },
+  punchButtonOut: { backgroundColor: Colors.danger  },
+  punchDisabled:  { opacity: 0.5 },
+  punchLabel: {
+    color: Colors.card,
     fontSize: 15,
     fontWeight: '700',
-    letterSpacing: 0.5,
   },
+
   breakButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    alignSelf: 'center',
+    minWidth: 180,
     backgroundColor: Colors.card,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingVertical: 14,
-    marginTop: 12,
+    paddingVertical: 12,
   },
   breakButtonActive: {
     backgroundColor: '#FFFBEB',
@@ -610,12 +599,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 12,
+    marginTop: 10,
     alignSelf: 'center',
     backgroundColor: '#FFFBEB',
     borderRadius: Radius.full,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderWidth: 1,
     borderColor: '#FCD34D',
   },
@@ -630,13 +619,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingTop: 12,
+    paddingBottom: 18,
+  },
+  locationText: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    fontWeight: '500',
+  },
+
+  infoRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14,
+  },
+  infoCard: {
+    flex: 1,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    padding: 14,
+    ...{
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+  },
+  infoCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  infoCardTitle: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  infoCardValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+
+  totalHoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  totalHoursText: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    fontWeight: '500',
+  },
+  totalHoursValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+
   segmentsCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.borderLight,
     padding: 12,
-    marginTop: 12,
+    marginTop: 14,
   },
   segmentsTitle: {
     fontSize: 11,
@@ -676,17 +733,18 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontWeight: '600',
   },
+
   statusPill: {
-    backgroundColor: '#F1F5F9',
+    alignSelf: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingHorizontal: 16,
+    borderRadius: Radius.full,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 14,
+    marginBottom: 4,
   },
   statusPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.primary,
   },
 });

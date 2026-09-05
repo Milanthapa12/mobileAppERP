@@ -614,8 +614,7 @@ const styles = StyleSheet.create({
   },
   /* Clock-In View Styling */
   clockScrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 24,
   },
   /* Map View Styling */
   mapContainer: {

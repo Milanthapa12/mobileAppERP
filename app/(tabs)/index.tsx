@@ -53,8 +53,8 @@ export default function DashboardScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* ── Attendance Panel (full web parity) ──────────────── */}
-        <AttendancePanel />
+        {/* ── Attendance Panel (previous design + full web parity) ── */}
+        <AttendancePanel locationName={branchName} />
 
         {/* ── Quick Actions ────────────────────────────────────── */}
         <View style={styles.sectionHeaderRow}>
