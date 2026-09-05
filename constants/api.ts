@@ -45,4 +45,5 @@ export const API_ENDPOINTS = {
     PUNCH: '/auth/device/attendance/punch',
     HISTORY: '/auth/device/attendanceHistory',
   },
+  SETTINGS: '/auth/device/settings',
 };
