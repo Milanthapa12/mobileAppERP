@@ -49,6 +49,7 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
   const [punching, setPunching] = useState(false);
   const [breaking, setBreaking] = useState(false);
   const [showReasonInput, setShowReasonInput] = useState(false);
+  const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
 
@@ -330,8 +331,14 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
       {/* ── Today's segments ─────────────────────────────────── */}
       {todaySegments.length > 0 && (
         <View style={styles.segmentsCard}>
-          <Text style={styles.segmentsTitle}>{"TODAY'S PUNCHES"}</Text>
-          {todaySegments.map((seg, i) => (
+          <TouchableOpacity style={styles.segmentsHeader} onPress={() => setSegmentsOpen((v) => !v)} activeOpacity={0.7}>
+            <Text style={styles.segmentsTitle}>{"TODAY'S PUNCHES"}</Text>
+            <View style={styles.segmentsHeaderRight}>
+              <Text style={styles.segmentsCount}>{todaySegments.length}</Text>
+              <Ionicons name={segmentsOpen ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
+            </View>
+          </TouchableOpacity>
+          {segmentsOpen && todaySegments.map((seg, i) => (
             <View key={`${seg.segment_number ?? i}-${i}`} style={styles.segmentRow}>
               <View
                 style={[
@@ -701,6 +708,27 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     color: Colors.textMuted,
     marginBottom: 8,
+  },
+  segmentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  segmentsHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  segmentsCount: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    overflow: 'hidden',
   },
   segmentRow: {
     flexDirection: 'row',
