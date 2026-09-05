@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -52,6 +52,7 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
   const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
+  const reasonInputRef = useRef<TextInput>(null);
 
   const canClockIn = todayData?.can_clock_in;
   const canClockOut = todayData?.can_clock_out;
@@ -93,7 +94,7 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
     setWarningMsg(null);
     try {
       const res = punchType === 'in' ? await punchClockIn(reason) : await punchClockOut(reason);
-      showMessage('Success', res.message || `Clocked ${punchType === 'in' ? 'in' : 'out'}!`);
+      showMessage('Success', res.message || (punchType === 'in' ? 'Day In punched!' : 'Day Out punched!'));
       if (res.warning) {
         setWarningMsg(res.warning);
       }
@@ -196,9 +197,16 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
                   )}
                 </View>
                 <TextInput
-                  style={styles.reasonInput}
+                  ref={reasonInputRef}
+                  style={[styles.reasonInput, isReasonRequired && !reason.trim() && styles.reasonInputRequired]}
                   value={reason}
                   onChangeText={setReason}
+                  autoFocus={showReasonInput || isReasonRequired}
+                  returnKeyType="done"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => {
+                    if (!isPunchDisabled) handlePunch();
+                  }}
                   placeholder={
                     isReasonRequired
                       ? punchType === 'in'
@@ -217,21 +225,21 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
                 )}
               </View>
             ) : (
-              <TouchableOpacity style={styles.addReasonBtn} onPress={() => setShowReasonInput(true)}>
+              <TouchableOpacity style={styles.addReasonBtn} onPress={() => { setShowReasonInput(true); setReason(''); }}>
                 <Ionicons name="chatbubble-ellipses-outline" size={14} color={Colors.textMuted} />
                 <Text style={styles.addReasonText}>Add a reason (optional)</Text>
               </TouchableOpacity>
-            )}
-
-            {isReasonRequired && !reason.trim() && (
-              <Text style={styles.reasonHint}>Enter a reason above to continue</Text>
             )}
           </>
         )}
 
         {/* Circular punch button */}
         <View style={styles.punchArea}>
-          <View style={[styles.dashedRing, isCheckedIn && styles.dashedRingOut]}>
+          <View style={[
+            styles.dashedRing,
+            isCheckedIn && styles.dashedRingOut,
+            isReasonRequired && !reason.trim() && styles.ringRequired,
+          ]}>
             <TouchableOpacity
               style={[
                 styles.punchButton,
@@ -255,6 +263,16 @@ export default function AttendancePanel({ locationName = 'Mobile punch' }: Props
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Required reason hint — shown right under the ring */}
+        {isReasonRequired && !reason.trim() && !isOnBreak && (
+          <View style={styles.reasonHintRow}>
+            <Ionicons name="information-circle" size={15} color={Colors.warning} />
+            <Text style={styles.reasonHint}>
+              {punchType === 'in' ? 'Reason required for late clock-in' : 'Reason required for early clock-out'}
+            </Text>
+          </View>
+        )}
 
         {/* Break button — only when clocked in or on break */}
         {(canClockOut || isOnBreak) && (
@@ -525,6 +543,9 @@ const styles = StyleSheet.create({
     minHeight: 44,
     textAlignVertical: 'top',
   },
+  reasonInputRequired: {
+    borderColor: Colors.danger,
+  },
   reasonRemoveBtn: {
     alignSelf: 'flex-end',
     paddingTop: 8,
@@ -535,12 +556,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   reasonHint: {
-    textAlign: 'center',
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.warning,
-    marginTop: 8,
     fontWeight: '600',
+    textAlign: 'center',
+    flex: 1,
+  },
+  reasonHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
     paddingHorizontal: 16,
+    marginBottom: 2,
   },
 
   punchArea: {
@@ -558,6 +586,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dashedRingOut: { borderColor: '#FCA5A5' },
+  ringRequired: { borderColor: '#FBBF24' },
   punchButton: {
     width: 130,
     height: 130,
