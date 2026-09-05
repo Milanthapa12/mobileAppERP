@@ -8,6 +8,14 @@ export const DEFAULT_BASE_URL =
 
 let activeBaseUrl = DEFAULT_BASE_URL;
 
+function getHostFromUrl(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
 export const API_CONFIG = {
   get BASE_URL() {
     return activeBaseUrl;
@@ -16,10 +24,12 @@ export const API_CONFIG = {
     activeBaseUrl = url;
   },
   TIMEOUT: 15000, // 15 seconds
-  HEADERS: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Host': 'logistics.test',
+  get HEADERS() {
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Host': getHostFromUrl(activeBaseUrl),
+    };
   },
 };
 
