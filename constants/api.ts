@@ -56,4 +56,5 @@ export const API_ENDPOINTS = {
   LEAVE_APPLICATIONS: '/auth/device/leave-application',
   TRAVEL_REQUESTS: '/auth/device/travel-requests',
   TRAVEL_MODES: '/auth/device/travel-mode-options',
+  OVERTIME_REQUESTS: '/auth/device/overtime-request',
 };
