@@ -844,11 +844,11 @@ export default function ProfileScreen() {
                           <View style={styles.docActions}>
                             <TouchableOpacity style={styles.docActionBtn} activeOpacity={0.7} onPress={() => openDoc(doc, 'view')}>
                               <Ionicons name="eye-outline" size={14} color="#0041E8" />
-                              <Text style={styles.docActionText}>View</Text>
+                              {/* <Text style={styles.docActionText}>View</Text> */}
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.docActionBtn} activeOpacity={0.7} onPress={() => openDoc(doc, 'download')}>
                               <Ionicons name="download-outline" size={14} color="#059669" />
-                              <Text style={styles.docActionText}>Download</Text>
+                              {/* <Text style={styles.docActionText}>Download</Text> */}
                             </TouchableOpacity>
                           </View>
                         ) : null}
