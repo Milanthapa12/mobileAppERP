@@ -242,8 +242,8 @@ export default function ProfileScreen() {
     switch (key) {
       case 'background':
         return [contact?.qualification_gap, data?.basic?.nationality, data?.basic?.ethnicity, data?.basic?.religion].some(
-            Boolean
-          )
+          Boolean
+        )
           ? 1
           : 0;
       case 'health':
@@ -612,186 +612,186 @@ export default function ProfileScreen() {
             {/* ── Info tab ─────────────────────────────────────── */}
             {tab === 'info' && (
               <>
-            {/* ── Personal Information ─────────────────────────── */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIcon, { backgroundColor: '#EFF6FF' }]}>
-                  <Ionicons name="person-outline" size={18} color="#0041E8" />
-                </View>
-                <Text style={styles.sectionTitle}>Personal Information</Text>
-              </View>
-              <FieldRow label="Gender" value={cap(contact?.gender)} />
-              <FieldRow label="Date of Birth (A.D)" value={contact?.dob} />
-              <FieldRow label="PAN" value={emp?.pan_number} />
-              <FieldRow label="Marital Status" value={cap(contact?.marital_status)} />
-              <FieldRow label="Tax Marital Status" value={cap(contact?.tax_marital_status)} />
-              <FieldRow label="Email" value={email} />
-              <FieldRow label="Phone" value={phone} />
-              <FieldRow label="Handicapped" value={contact?.handicapped ? 'Yes' : 'No'} last />
-            </View>
-
-            {/* ── Employment Overview ──────────────────────────── */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIcon, { backgroundColor: '#F0FDF4' }]}>
-                  <Ionicons name="briefcase-outline" size={18} color="#16A34A" />
-                </View>
-                <Text style={styles.sectionTitle}>Employment Overview</Text>
-              </View>
-              <FieldRow label="Joining Date" value={contact?.joining_date} />
-              <FieldRow label="Contract End Date" value={contact?.contract_end_date} />
-              <FieldRow label="Employment Status" value={contact?.employee_status?.name} />
-              <FieldRow label="Is Consultant" value={Number(contact?.is_consultant) === 1 ? 'Yes' : 'No'} last />
-            </View>
-
-            {/* ── Bank Information ─────────────────────────────── */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIcon, { backgroundColor: '#FEF3C7' }]}>
-                  <Ionicons name="card-outline" size={18} color="#D97706" />
-                </View>
-                <Text style={styles.sectionTitle}>Bank Information</Text>
-              </View>
-              <FieldRow label="Bank Name" value={contact?.bank?.name} />
-              <FieldRow label="Account Number" value={contact?.bank_account_number} />
-              <FieldRow label="Branch Name" value={contact?.branch_name} />
-              <FieldRow label="Payment Frequency" value={cap(contact?.payment_frequency)} />
-              <FieldRow label="Payment Mode" value={cap(contact?.payment_mode)} last />
-            </View>
-
-            {/* ── Employee Information ─────────────────────────── */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIcon, { backgroundColor: '#F3E8FF' }]}>
-                  <Ionicons name="stats-chart-outline" size={18} color="#9333EA" />
-                </View>
-                <Text style={styles.sectionTitle}>Employee Information</Text>
-                <Ionicons name="information-circle-outline" size={15} color="#94A3B8" />
-              </View>
-
-              {INFO_FIELDS.map((field) => {
-                const row = body?.[field.type] as ProfileEmploymentInfoRow | null | undefined;
-                const history = (data.employeeInfoHistory?.[field.type] ?? []) as ProfileEmploymentInfoRow[];
-                const isOpen = expandedInfo.has(field.type);
-                return (
-                  <TouchableOpacity
-                    key={field.type}
-                    activeOpacity={0.7}
-                    onPress={() => (history.length > 0 ? toggleInfo(field.type) : undefined)}
-                    style={styles.infoFieldRow}
-                  >
-                    <View style={[styles.infoFieldIcon, { backgroundColor: field.iconBg }]}>
-                      <Ionicons name={field.icon} size={15} color={field.iconColor} />
+                {/* ── Personal Information ─────────────────────────── */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionIcon, { backgroundColor: '#EFF6FF' }]}>
+                      <Ionicons name="person-outline" size={18} color="#0041E8" />
                     </View>
-                    <View style={styles.infoFieldBody}>
-                      <Text style={styles.infoFieldLabel}>{field.label}</Text>
-                      <Text style={styles.infoFieldValue}>
-                        {infoValue(row)}
-                        {row?.is_department_head ? '  · Head' : ''}
-                      </Text>
-                    </View>
-                    {row?.effective_from ? (
-                      <Text style={styles.infoFieldDate}>{String(row.effective_from).slice(0, 10)}</Text>
-                    ) : history.length > 0 && !isOpen ? (
-                      <Ionicons name="chevron-down" size={16} color="#94A3B8" />
-                    ) : history.length > 0 ? (
-                      <Ionicons name="chevron-up" size={16} color="#94A3B8" />
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
-
-              {expandedInfo.size > 0 && (
-                <View style={styles.infoHistoryNote}>
-                  <Text style={styles.infoHistoryNoteText}>Tap a row to view its revision history.</Text>
-                </View>
-              )}
-
-              {Array.from(expandedInfo).map((type) => {
-                const history = (data.employeeInfoHistory?.[type] ?? []) as ProfileEmploymentInfoRow[];
-                if (history.length === 0) return null;
-                const field = INFO_FIELDS.find((f) => f.type === type);
-                return (
-                  <View key={type} style={styles.historyBlock}>
-                    <Text style={styles.historyBlockTitle}>{field?.label ?? type} History</Text>
-                    {history.map((h, i) => (
-                      <View key={i} style={styles.historyRow}>
-                        <Text style={styles.historyValue}>
-                          {infoValue(h)}{' '}
-                          <Text style={styles.historyRev}>r{h.revision ?? ''}</Text>
-                        </Text>
-                        <Text style={styles.historyDate}>{h.effective_from ? String(h.effective_from).slice(0, 10) : '—'}</Text>
-                      </View>
-                    ))}
+                    <Text style={styles.sectionTitle}>Personal Information</Text>
                   </View>
-                );
-              })}
-            </View>
+                  <FieldRow label="Gender" value={cap(contact?.gender)} />
+                  <FieldRow label="Date of Birth (A.D)" value={contact?.dob} />
+                  <FieldRow label="PAN" value={emp?.pan_number} />
+                  <FieldRow label="Marital Status" value={cap(contact?.marital_status)} />
+                  <FieldRow label="Tax Marital Status" value={cap(contact?.tax_marital_status)} />
+                  <FieldRow label="Email" value={email} />
+                  <FieldRow label="Phone" value={phone} />
+                  <FieldRow label="Handicapped" value={contact?.handicapped ? 'Yes' : 'No'} last />
+                </View>
 
-            {/* ── Account Settings ─────────────────────────────── */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIcon, { backgroundColor: '#F1F5F9' }]}>
-                  <Ionicons name="settings-outline" size={18} color="#475569" />
+                {/* ── Employment Overview ──────────────────────────── */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionIcon, { backgroundColor: '#F0FDF4' }]}>
+                      <Ionicons name="briefcase-outline" size={18} color="#16A34A" />
+                    </View>
+                    <Text style={styles.sectionTitle}>Employment Overview</Text>
+                  </View>
+                  <FieldRow label="Joining Date" value={contact?.joining_date} />
+                  <FieldRow label="Contract End Date" value={contact?.contract_end_date} />
+                  <FieldRow label="Employment Status" value={contact?.employee_status?.name} />
+                  <FieldRow label="Is Consultant" value={Number(contact?.is_consultant) === 1 ? 'Yes' : 'No'} last />
                 </View>
-                <Text style={styles.sectionTitle}>Account Settings</Text>
-              </View>
-              <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#64748B" />
-                  <Text style={styles.menuText}>Change Password</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Ionicons name="shield-checkmark-outline" size={20} color="#64748B" />
-                  <Text style={styles.menuText}>Privacy & Security</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
 
-            {/* ── Sign Out ─────────────────────────────────────── */}
-            <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.85} onPress={handleSignOut}>
-              <Ionicons name="log-out-outline" size={20} color="#DC2626" />
-              <Text style={styles.logoutText}>Sign Out</Text>
-            </TouchableOpacity>
+                {/* ── Bank Information ─────────────────────────────── */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionIcon, { backgroundColor: '#FEF3C7' }]}>
+                      <Ionicons name="card-outline" size={18} color="#D97706" />
+                    </View>
+                    <Text style={styles.sectionTitle}>Bank Information</Text>
+                  </View>
+                  <FieldRow label="Bank Name" value={contact?.bank?.name} />
+                  <FieldRow label="Account Number" value={contact?.bank_account_number} />
+                  <FieldRow label="Branch Name" value={contact?.branch_name} />
+                  <FieldRow label="Payment Frequency" value={cap(contact?.payment_frequency)} />
+                  <FieldRow label="Payment Mode" value={cap(contact?.payment_mode)} last />
+                </View>
+
+                {/* ── Employee Information ─────────────────────────── */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionIcon, { backgroundColor: '#F3E8FF' }]}>
+                      <Ionicons name="stats-chart-outline" size={18} color="#9333EA" />
+                    </View>
+                    <Text style={styles.sectionTitle}>Employee Information</Text>
+                    <Ionicons name="information-circle-outline" size={15} color="#94A3B8" />
+                  </View>
+
+                  {INFO_FIELDS.map((field) => {
+                    const row = body?.[field.type] as ProfileEmploymentInfoRow | null | undefined;
+                    const history = (data.employeeInfoHistory?.[field.type] ?? []) as ProfileEmploymentInfoRow[];
+                    const isOpen = expandedInfo.has(field.type);
+                    return (
+                      <TouchableOpacity
+                        key={field.type}
+                        activeOpacity={0.7}
+                        onPress={() => (history.length > 0 ? toggleInfo(field.type) : undefined)}
+                        style={styles.infoFieldRow}
+                      >
+                        <View style={[styles.infoFieldIcon, { backgroundColor: field.iconBg }]}>
+                          <Ionicons name={field.icon} size={15} color={field.iconColor} />
+                        </View>
+                        <View style={styles.infoFieldBody}>
+                          <Text style={styles.infoFieldLabel}>{field.label}</Text>
+                          <Text style={styles.infoFieldValue}>
+                            {infoValue(row)}
+                            {row?.is_department_head ? '  · Head' : ''}
+                          </Text>
+                        </View>
+                        {row?.effective_from ? (
+                          <Text style={styles.infoFieldDate}>{String(row.effective_from).slice(0, 10)}</Text>
+                        ) : history.length > 0 && !isOpen ? (
+                          <Ionicons name="chevron-down" size={16} color="#94A3B8" />
+                        ) : history.length > 0 ? (
+                          <Ionicons name="chevron-up" size={16} color="#94A3B8" />
+                        ) : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  {expandedInfo.size > 0 && (
+                    <View style={styles.infoHistoryNote}>
+                      <Text style={styles.infoHistoryNoteText}>Tap a row to view its revision history.</Text>
+                    </View>
+                  )}
+
+                  {Array.from(expandedInfo).map((type) => {
+                    const history = (data.employeeInfoHistory?.[type] ?? []) as ProfileEmploymentInfoRow[];
+                    if (history.length === 0) return null;
+                    const field = INFO_FIELDS.find((f) => f.type === type);
+                    return (
+                      <View key={type} style={styles.historyBlock}>
+                        <Text style={styles.historyBlockTitle}>{field?.label ?? type} History</Text>
+                        {history.map((h, i) => (
+                          <View key={i} style={styles.historyRow}>
+                            <Text style={styles.historyValue}>
+                              {infoValue(h)}{' '}
+                              <Text style={styles.historyRev}>r{h.revision ?? ''}</Text>
+                            </Text>
+                            <Text style={styles.historyDate}>{h.effective_from ? String(h.effective_from).slice(0, 10) : '—'}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* ── Account Settings ─────────────────────────────── */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionIcon, { backgroundColor: '#F1F5F9' }]}>
+                      <Ionicons name="settings-outline" size={18} color="#475569" />
+                    </View>
+                    <Text style={styles.sectionTitle}>Account Settings</Text>
+                  </View>
+                  <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Ionicons name="lock-closed-outline" size={20} color="#64748B" />
+                      <Text style={styles.menuText}>Change Password</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Ionicons name="shield-checkmark-outline" size={20} color="#64748B" />
+                      <Text style={styles.menuText}>Privacy & Security</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* ── Sign Out ─────────────────────────────────────── */}
+                <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.85} onPress={handleSignOut}>
+                  <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+                  <Text style={styles.logoutText}>Sign Out</Text>
+                </TouchableOpacity>
               </>
             )}
 
             {/* ── Additional tab ───────────────────────────────── */}
             {tab === 'additional' && (
               <View style={styles.tabBody}>
-            {/* ── Additional Info ──────────────────────────────── */}
-            {GROUPS.map((group) => (
-              <View key={group.label} style={styles.groupBlock}>
-                <Text style={styles.groupHeader}>{group.label.toUpperCase()}</Text>
-                {group.items.map((cat) => {
-                  const open = openCats.has(cat.key);
-                  const count = countOf(cat.key);
-                  return (
-                    <View key={cat.key} style={styles.accCard}>
-                      <TouchableOpacity style={styles.accHeader} activeOpacity={0.7} onPress={() => toggleCat(cat.key)}>
-                        <View style={[styles.accIcon, { backgroundColor: cat.iconBg }]}>
-                          <Ionicons name={cat.icon} size={16} color={cat.iconColor} />
-                        </View>
-                        <Text style={styles.accTitle}>{cat.title}</Text>
-                        <View style={styles.accRight}>
-                          {count > 0 && (
-                            <View style={styles.countPill}>
-                              <Text style={styles.countText}>{count}</Text>
+                {/* ── Additional Info ──────────────────────────────── */}
+                {GROUPS.map((group) => (
+                  <View key={group.label} style={styles.groupBlock}>
+                    <Text style={styles.groupHeader}>{group.label.toUpperCase()}</Text>
+                    {group.items.map((cat) => {
+                      const open = openCats.has(cat.key);
+                      const count = countOf(cat.key);
+                      return (
+                        <View key={cat.key} style={styles.accCard}>
+                          <TouchableOpacity style={styles.accHeader} activeOpacity={0.7} onPress={() => toggleCat(cat.key)}>
+                            <View style={[styles.accIcon, { backgroundColor: cat.iconBg }]}>
+                              <Ionicons name={cat.icon} size={16} color={cat.iconColor} />
                             </View>
-                          )}
-                          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="#94A3B8" />
+                            <Text style={styles.accTitle}>{cat.title}</Text>
+                            <View style={styles.accRight}>
+                              {count > 0 && (
+                                <View style={styles.countPill}>
+                                  <Text style={styles.countText}>{count}</Text>
+                                </View>
+                              )}
+                              <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="#94A3B8" />
+                            </View>
+                          </TouchableOpacity>
+                          {open && <View style={styles.accBody}>{renderCat(cat.key)}</View>}
                         </View>
-                      </TouchableOpacity>
-                      {open && <View style={styles.accBody}>{renderCat(cat.key)}</View>}
-                    </View>
-                  );
-                })}
-              </View>
-            ))}
+                      );
+                    })}
+                  </View>
+                ))}
               </View>
             )}
 
@@ -837,7 +837,7 @@ export default function ProfileScreen() {
                               doc.expiry_date ? `Expires ${String(doc.expiry_date).slice(0, 10)}` : null,
                             ]
                               .filter(Boolean)
-                              .join('  ·  ')}
+                              .join('\n')}
                           </Text>
                         </View>
                         {doc.attachment_id ? (
