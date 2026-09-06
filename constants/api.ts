@@ -63,4 +63,8 @@ export const API_ENDPOINTS = {
   TRAINING_CURRENCIES: '/auth/device/training-currency-options',
   IN_LIEU_REQUESTS: '/auth/device/in-lieu-requests',
   IN_LIEU_CLASSIFY_DATE: '/auth/device/in-lieu-classify-date',
+  REQUISITIONS: '/auth/device/requisitions',
+  REQUISITION_USER_OPTIONS: '/auth/device/requisition-user-options',
+  REQUISITION_PRODUCT_OPTIONS: '/auth/device/requisition-product-options',
+  REQUISITION_UNIT_OPTIONS: '/auth/device/requisition-unit-options',
 };
