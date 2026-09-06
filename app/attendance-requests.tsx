@@ -23,6 +23,7 @@ import {
   AttendanceRequestRecord,
 } from '@/services/api/attendanceRequestService';
 import { getPunchLocation, PunchLocation } from '@/services/location/geolocation';
+import DateTimePickerField from '@/components/DateTimePickerField';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -590,9 +591,10 @@ export default function AttendanceRequestsScreen() {
           <Text style={styles.fieldLabel}>Code</Text>
           <View style={styles.codeRow}>
             <TextInput
-              style={[styles.input, styles.codeInput]}
+              style={[styles.input, styles.codeInput, styles.codeInputReadOnly]}
               value={code}
-              onChangeText={setCode}
+              editable={false}
+              selectTextOnFocus={false}
               autoCapitalize="characters"
               placeholder="ATTREQ-…"
               placeholderTextColor="#CBD5E1"
@@ -657,13 +659,11 @@ export default function AttendanceRequestsScreen() {
               </View>
               <View style={styles.dayDateField}>
                 <Text style={styles.fieldLabel}>Date</Text>
-                <TextInput
-                  style={[styles.input, styles.dateInput]}
+                <DateTimePickerField
+                  mode="date"
                   value={day.date}
-                  onChangeText={(t) => setDayDate(di, t)}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#CBD5E1"
-                  autoCapitalize="none"
+                  onChange={(t) => setDayDate(di, t)}
+                  placeholder="Select date"
                 />
               </View>
               <View style={styles.punchCountPill}>
@@ -706,13 +706,11 @@ export default function AttendanceRequestsScreen() {
                       <Ionicons name="log-in-outline" size={13} color="#16A34A" />
                       <Text style={[styles.punchBoxTitle, { color: '#16A34A' }]}>CHECK-IN</Text>
                     </View>
-                    <TextInput
-                      style={[styles.input, styles.timeInput]}
+                    <DateTimePickerField
+                      mode="time"
                       value={punch.check_in}
-                      onChangeText={(t) => updatePunch(di, pi, { check_in: t })}
-                      placeholder="HH:MM"
-                      placeholderTextColor="#CBD5E1"
-                      keyboardType="numbers-and-punctuation"
+                      onChange={(t) => updatePunch(di, pi, { check_in: t })}
+                      placeholder="Set time"
                     />
                     <TextInput
                       style={[styles.input, styles.noteInput]}
@@ -728,13 +726,11 @@ export default function AttendanceRequestsScreen() {
                       <Ionicons name="log-out-outline" size={13} color="#DC2626" />
                       <Text style={[styles.punchBoxTitle, { color: '#DC2626' }]}>CHECK-OUT</Text>
                     </View>
-                    <TextInput
-                      style={[styles.input, styles.timeInput]}
+                    <DateTimePickerField
+                      mode="time"
                       value={punch.check_out}
-                      onChangeText={(t) => updatePunch(di, pi, { check_out: t })}
-                      placeholder="HH:MM"
-                      placeholderTextColor="#CBD5E1"
-                      keyboardType="numbers-and-punctuation"
+                      onChange={(t) => updatePunch(di, pi, { check_out: t })}
+                      placeholder="Set time"
                     />
                     <TextInput
                       style={[styles.input, styles.noteInput]}
@@ -1011,6 +1007,7 @@ const styles = StyleSheet.create({
   },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   codeInput: { flex: 1 },
+  codeInputReadOnly: { backgroundColor: '#F1F5F9' },
   codeRefreshBtn: {
     width: 42,
     height: 42,
@@ -1064,7 +1061,6 @@ const styles = StyleSheet.create({
   },
   dayNumberText: { fontSize: 11, fontWeight: '800', color: '#0041E8' },
   dayDateField: { flex: 1 },
-  dateInput: { paddingVertical: 8, fontSize: 13 },
   dayRemoveBtn: { padding: 4, marginTop: 4 },
   punchSection: { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 10, marginTop: 10 },
   punchHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
@@ -1078,7 +1074,6 @@ const styles = StyleSheet.create({
   checkOutBox: { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
   punchBoxTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
   punchBoxTitle: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
-  timeInput: { paddingVertical: 8, fontSize: 13, fontVariant: ['tabular-nums'] },
   noteInput: { paddingVertical: 8, fontSize: 12, marginTop: 8 },
   addPunchBtn: {
     flexDirection: 'row',
