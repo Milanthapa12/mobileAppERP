@@ -46,4 +46,5 @@ export const API_ENDPOINTS = {
     HISTORY: '/auth/device/attendanceHistory',
   },
   SETTINGS: '/auth/device/settings',
+  PROFILE: '/auth/device/profile',
 };
