@@ -54,4 +54,6 @@ export const API_ENDPOINTS = {
   LEAVE_BALANCE: '/auth/device/leave-balance',
   LEAVE_BALANCES: '/auth/device/leave-balances',
   LEAVE_APPLICATIONS: '/auth/device/leave-application',
+  TRAVEL_REQUESTS: '/auth/device/travel-requests',
+  TRAVEL_MODES: '/auth/device/travel-mode-options',
 };

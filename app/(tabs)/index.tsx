@@ -42,7 +42,7 @@ const PENDING_APPROVALS = [
 const QUICK_ACTIONS: QuickAction[] = [
   { label: 'Apply Leave',            icon: 'umbrella-outline',        bg: Colors.primaryLight, color: Colors.primary,  route: '/leave'                    },
   { label: 'Training Request',       icon: 'school-outline',         bg: Colors.purpleLight,  color: Colors.purple,                                    },
-  { label: 'Travel Request',         icon: 'airplane-outline',       bg: Colors.skyLight,     color: Colors.sky,                                        },
+  { label: 'Travel Request',         icon: 'airplane-outline',       bg: Colors.skyLight,     color: Colors.sky,      route: '/travel'                },
   { label: 'Attendance Request',     icon: 'calendar-outline',      bg: Colors.tealLight,    color: Colors.teal,     route: '/attendance-requests' },
   { label: 'Overtime',               icon: 'timer-outline',          bg: Colors.warningLight, color: Colors.warning,  route: '/overtime'                },
   { label: 'In Lieu',                icon: 'swap-horizontal-outline',bg: Colors.emeraldLight, color: Colors.emerald,                                     },

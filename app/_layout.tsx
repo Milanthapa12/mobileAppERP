@@ -17,6 +17,7 @@ function RootLayoutNav() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="leave" options={{ headerShown: false }} />
+        <Stack.Screen name="travel" options={{ headerShown: false }} />
         <Stack.Screen name="overtime" options={{ headerShown: false }} />
         <Stack.Screen name="claim" options={{ headerShown: false }} />
         <Stack.Screen name="my-pays" options={{ headerShown: false }} />
