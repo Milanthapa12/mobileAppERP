@@ -57,4 +57,8 @@ export const API_ENDPOINTS = {
   TRAVEL_REQUESTS: '/auth/device/travel-requests',
   TRAVEL_MODES: '/auth/device/travel-mode-options',
   OVERTIME_REQUESTS: '/auth/device/overtime-request',
+  TRAINING_REQUESTS: '/auth/device/training-requests',
+  TRAINING_TYPES: '/auth/device/training-type-options',
+  TRAINING_COUNTRIES: '/auth/device/training-country-options',
+  TRAINING_CURRENCIES: '/auth/device/training-currency-options',
 };

@@ -61,7 +61,7 @@ const SECTIONS: Section[] = [
     title: 'Work Request',
     items: [
       { title: 'Travel Requests', icon: 'airplane-outline', iconBg: '#E0F2FE', iconColor: '#0284C7', route: '/travel' },
-      { title: 'Training Request', icon: 'school-outline', iconBg: '#DCEEFB', iconColor: '#2563EB' },
+      { title: 'Training Request', icon: 'school-outline', iconBg: '#DCEEFB', iconColor: '#2563EB', route: '/training' },
     ],
   },
   {
