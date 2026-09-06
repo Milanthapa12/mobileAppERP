@@ -1,10 +1,10 @@
+import AppHeader from '@/components/AppHeader';
+import NotificationsModal, { DEFAULT_NOTIFICATIONS } from '@/components/NotificationsModal';
+import ScreenWrapper from '@/components/ScreenWrapper';
+import { Colors, Radius, Shadow } from '@/constants/theme';
 import { useAttendance } from '@/context/AttendanceContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useLiveClock } from '@/hooks/useLiveClock';
-import { Colors, Radius, Shadow } from '@/constants/theme';
-import AppHeader from '@/components/AppHeader';
-import ScreenWrapper from '@/components/ScreenWrapper';
-import NotificationsModal, { DEFAULT_NOTIFICATIONS } from '@/components/NotificationsModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -20,21 +20,21 @@ import {
 
 // ─── Quick Action Grid Data ────────────────────────────────────────────────
 const QUICK_ACTIONS = [
-  { label: 'Leave',                icon: 'calendar-outline',      bg: Colors.primaryLight, color: Colors.primary,  route: '/leave-balance'        },
-  { label: 'Exceptional\nAttendance', icon: 'checkbox-outline',   bg: Colors.tealLight,   color: Colors.teal,     route: '/(tabs)/attendance'    },
-  { label: 'Overtime',             icon: 'hourglass-outline',     bg: Colors.warningLight, color: Colors.warning,  route: '/overtime'             },
-  { label: 'Claim',                icon: 'wallet-outline',        bg: Colors.dangerLight,  color: Colors.danger,   route: '/claim',  badge: 3     },
-  { label: 'Outside\nVisit',       icon: 'location-outline',      bg: Colors.purpleLight,  color: Colors.purple,   route: '/(tabs)/attendance'    },
-  { label: 'Work Shift',           icon: 'partly-sunny-outline',  bg: Colors.skyLight,     color: Colors.sky,      route: '/(tabs)/attendance'    },
-  { label: 'Documents',            icon: 'folder-open-outline',   bg: Colors.emeraldLight, color: Colors.emerald,  route: '/(tabs)/documents'     },
-  { label: 'Attendance\nHistory',  icon: 'time-outline',          bg: Colors.orangeLight,  color: Colors.orange,   route: '/(tabs)/attendance'    },
+  { label: 'Leave', icon: 'calendar-outline', bg: Colors.primaryLight, color: Colors.primary, route: '/leave-balance' },
+  // { label: 'Exceptional\nAttendance', icon: 'checkbox-outline', bg: Colors.tealLight, color: Colors.teal, route: '/(tabs)/attendance' },
+  // { label: 'Overtime', icon: 'hourglass-outline', bg: Colors.warningLight, color: Colors.warning, route: '/overtime' },
+  // { label: 'Claim', icon: 'wallet-outline', bg: Colors.dangerLight, color: Colors.danger, route: '/claim', badge: 3 },
+  // { label: 'Outside\nVisit', icon: 'location-outline', bg: Colors.purpleLight, color: Colors.purple, route: '/(tabs)/attendance' },
+  // { label: 'Work Shift', icon: 'partly-sunny-outline', bg: Colors.skyLight, color: Colors.sky, route: '/(tabs)/attendance' },
+  // { label: 'Documents', icon: 'folder-open-outline', bg: Colors.emeraldLight, color: Colors.emerald, route: '/(tabs)/documents' },
+  { label: 'Attendance\nRequest', icon: 'time-outline', bg: Colors.orangeLight, color: Colors.orange, route: '/(tabs)/attendance' },
 ] as const;
 
 // ─── Static Pending Approvals ─────────────────────────────────────────────
 const PENDING_APPROVALS = [
-  { name: 'Milan Thapa',        type: 'Annual Leave'   },
-  { name: 'Dion Haryadi Ku...', type: 'Annual Leave'   },
-  { name: 'Rina Rahmadi',       type: 'Marriage Leave' },
+  { name: 'Milan Thapa', type: 'Annual Leave' },
+  { name: 'Dion Haryadi Ku...', type: 'Annual Leave' },
+  { name: 'Rina Rahmadi', type: 'Marriage Leave' },
 ];
 
 export default function DashboardScreen() {
@@ -45,7 +45,7 @@ export default function DashboardScreen() {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const displayName = user?.name || 'Milan Thapa';
-  const branchName  = activeBranch?.name || 'Dhaka, Bangladesh';
+  const branchName = activeBranch?.name || 'Dhaka, Bangladesh';
 
   const handlePunch = async () => {
     try {
@@ -155,7 +155,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* ── Pending Approvals ────────────────────────────────── */}
-        <View style={styles.approvalCard}>
+        {/* <View style={styles.approvalCard}>
           <View style={styles.approvalHeader}>
             <View style={styles.approvalTitleRow}>
               <View style={styles.approvalBadge}>
@@ -181,7 +181,7 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </View> */}
 
       </ScrollView>
 
@@ -240,8 +240,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
-  punchButtonIn:  { backgroundColor: Colors.success },
-  punchButtonOut: { backgroundColor: Colors.danger  },
+  punchButtonIn: { backgroundColor: Colors.success },
+  punchButtonOut: { backgroundColor: Colors.danger },
   punchLabel: {
     color: Colors.card,
     fontSize: 15,

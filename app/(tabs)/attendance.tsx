@@ -10,6 +10,8 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAttendance } from '@/context/AttendanceContext';
@@ -18,12 +20,17 @@ import ScreenWrapper from '@/components/ScreenWrapper';
 import { Colors, Radius, Shadow } from '@/constants/theme';
 import { useLiveClock } from '@/hooks/useLiveClock';
 import { attendanceService, AttendanceHistoryItem } from '@/services/api/attendanceService';
+import {
+  attendanceRequestService,
+  AttendanceRequest,
+  ShiftOption,
+} from '@/services/api/attendanceRequestService';
 
 const { width } = Dimensions.get('window');
 
 export default function AttendanceScreen() {
   const { isCheckedIn, timeIn, timeOut, totalHours, toggleClockIn } = useAttendance();
-  const [activeSegment, setActiveSegment] = useState<'history' | 'map' | 'statistic'>('history');
+  const [activeSegment, setActiveSegment] = useState<'history' | 'map' | 'statistic' | 'requests'>('history');
 
   // ── History state ──────────────────────────────────────────
   const now = new Date();
@@ -57,6 +64,108 @@ export default function AttendanceScreen() {
       fetchHistory(historyYear, historyMonth);
     }
   }, [activeSegment, historyYear, historyMonth, fetchHistory]);
+
+  // ── Attendance Requests state ──────────────────────────────────────────────
+  const [requestsData, setRequestsData] = useState<AttendanceRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
+  const [myShift, setMyShift] = useState<ShiftOption | null>(null);
+
+  // Submit modal
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [reqDate, setReqDate] = useState('');
+  const [reqCheckIn, setReqCheckIn] = useState('');
+  const [reqCheckOut, setReqCheckOut] = useState('');
+  const [reqReason, setReqReason] = useState('');
+  const [reqSubmitting, setReqSubmitting] = useState(false);
+
+  const fetchRequests = useCallback(async () => {
+    setRequestsLoading(true);
+    setRequestsError(null);
+    try {
+      const [listRes, shiftRes] = await Promise.all([
+        attendanceRequestService.getList(),
+        attendanceRequestService.getMyShift(),
+      ]);
+      setRequestsData(Array.isArray(listRes?.data) ? listRes.data : []);
+      setMyShift(shiftRes?.data ?? null);
+    } catch (err: any) {
+      setRequestsError(err?.message || 'Failed to load attendance requests.');
+    } finally {
+      setRequestsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSegment === 'requests') fetchRequests();
+  }, [activeSegment, fetchRequests]);
+
+  const handleSubmitRequest = async () => {
+    if (!reqDate) {
+      const m = 'Please enter the date (YYYY-MM-DD).';
+      Platform.OS === 'web' ? alert(m) : Alert.alert('Required', m);
+      return;
+    }
+    if (!reqReason.trim()) {
+      const m = 'Please enter a reason.';
+      Platform.OS === 'web' ? alert(m) : Alert.alert('Required', m);
+      return;
+    }
+    setReqSubmitting(true);
+    try {
+      await attendanceRequestService.submit({
+        code: `AR-${Date.now()}`,
+        shift_id: myShift?.value ?? null,
+        reason: reqReason.trim(),
+        days: [{
+          date: reqDate,
+          punches: [{
+            check_in: reqCheckIn || null,
+            check_out: reqCheckOut || null,
+          }],
+        }],
+      });
+      setShowRequestModal(false);
+      setReqDate(''); setReqCheckIn(''); setReqCheckOut(''); setReqReason('');
+      const ok = 'Attendance request submitted successfully!';
+      Platform.OS === 'web' ? alert(ok) : Alert.alert('Success', ok);
+      await fetchRequests();
+    } catch (err: any) {
+      const m = err?.message || 'Failed to submit request.';
+      Platform.OS === 'web' ? alert(m) : Alert.alert('Error', m);
+    } finally {
+      setReqSubmitting(false);
+    }
+  };
+
+  const handleDeleteRequest = (id: number) => {
+    const doDelete = async () => {
+      try {
+        await attendanceRequestService.remove(id);
+        setRequestsData(prev => prev.filter(r => r.id !== id));
+      } catch (err: any) {
+        const m = err?.message || 'Failed to withdraw request.';
+        Platform.OS === 'web' ? alert(m) : Alert.alert('Error', m);
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Withdraw this attendance request?')) doDelete();
+    } else {
+      Alert.alert('Withdraw', 'Remove this attendance request?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Withdraw', style: 'destructive', onPress: doDelete },
+      ]);
+    }
+  };
+
+  function reqStatusStyle(status: string) {
+    switch (status) {
+      case 'approved':  return { bg: '#DCFCE7', text: '#16A34A' };
+      case 'rejected':  return { bg: '#FEE2E2', text: '#DC2626' };
+      case 'in_review': return { bg: '#EDE9FE', text: '#7C3AED' };
+      default:          return { bg: '#FEF3C7', text: '#D97706' };
+    }
+  }
 
   const shiftMonth = (delta: number) => {
     let m = historyMonth + delta;
@@ -156,10 +265,17 @@ export default function AttendanceScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.segmentBtn, activeSegment === 'requests' && styles.segmentBtnActive]}
+          onPress={() => setActiveSegment('requests')}
+        >
+          <Text style={[styles.segmentText, activeSegment === 'requests' && styles.segmentTextActive]}>REQUESTS</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.segmentBtn, activeSegment === 'statistic' && styles.segmentBtnActive]}
           onPress={() => setActiveSegment('statistic')}
         >
-          <Text style={[styles.segmentText, activeSegment === 'statistic' && styles.segmentTextActive]}>STATISTIC</Text>
+          <Text style={[styles.segmentText, activeSegment === 'statistic' && styles.segmentTextActive]}>STATS</Text>
         </TouchableOpacity>
       </View>
 
@@ -498,6 +614,172 @@ export default function AttendanceScreen() {
           </View>
         </ScrollView>
       )}
+      {/* SEGMENT 4: ATTENDANCE REQUESTS */}
+      {activeSegment === 'requests' && (
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={requestsLoading} onRefresh={fetchRequests} tintColor="#0041E8" />
+            }
+          >
+            {/* Error */}
+            {requestsError && (
+              <View style={[styles.centerState, { paddingVertical: 24 }]}>
+                <Ionicons name="alert-circle-outline" size={36} color="#DC2626" />
+                <Text style={[styles.centerStateText, { color: '#DC2626' }]}>{requestsError}</Text>
+              </View>
+            )}
+
+            {/* Shift info */}
+            {myShift && (
+              <View style={styles.shiftInfoBanner}>
+                <Ionicons name="time-outline" size={16} color="#0041E8" />
+                <Text style={styles.shiftInfoText}>Your Shift: {myShift.label}</Text>
+              </View>
+            )}
+
+            {/* Submit button */}
+            <TouchableOpacity
+              style={styles.primaryActionButton}
+              activeOpacity={0.88}
+              onPress={() => setShowRequestModal(true)}
+            >
+              <Text style={styles.primaryActionButtonText}>+ NEW ATTENDANCE REQUEST</Text>
+            </TouchableOpacity>
+
+            {/* Request list */}
+            {!requestsLoading && !requestsError && requestsData.length === 0 && (
+              <View style={styles.centerState}>
+                <Ionicons name="document-text-outline" size={40} color="#CBD5E1" />
+                <Text style={styles.centerStateText}>No attendance requests yet.</Text>
+              </View>
+            )}
+
+            {!requestsLoading && !requestsError && requestsData.map((req) => {
+              const sc = reqStatusStyle(req.status);
+              return (
+                <View key={req.id} style={[styles.historyCard, { marginBottom: 12 }]}>
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', flex: 1, marginRight: 8 }} numberOfLines={1}>
+                        {req.code}
+                      </Text>
+                      <View style={[styles.statusPill, { backgroundColor: sc.bg, marginTop: 0, paddingVertical: 4, paddingHorizontal: 10 }]}>
+                        <Text style={[styles.statusPillText, { color: sc.text, fontSize: 11 }]}>
+                          {req.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </Text>
+                      </View>
+                    </View>
+                    {req.days && req.days.length > 0 && (
+                      <Text style={{ fontSize: 12, color: '#0041E8', fontWeight: '600' }}>
+                        {req.days.map(d => d.date).join(', ')}
+                      </Text>
+                    )}
+                    <Text style={{ fontSize: 12, color: '#64748B' }} numberOfLines={2}>{req.reason}</Text>
+                    {req.status === 'pending' && (
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingVertical: 4 }}
+                        onPress={() => handleDeleteRequest(req.id)}
+                      >
+                        <Ionicons name="trash-outline" size={14} color="#DC2626" />
+                        <Text style={{ color: '#DC2626', fontSize: 12, fontWeight: '600' }}>Withdraw</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Attendance Request Modal */}
+      <Modal
+        visible={showRequestModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowRequestModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Attendance Request</Text>
+              <TouchableOpacity onPress={() => setShowRequestModal(false)}>
+                <Ionicons name="close" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Date *</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={reqDate}
+                onChangeText={setReqDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numbers-and-punctuation"
+              />
+
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Check In</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={reqCheckIn}
+                    onChangeText={setReqCheckIn}
+                    placeholder="HH:MM"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numbers-and-punctuation"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Check Out</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={reqCheckOut}
+                    onChangeText={setReqCheckOut}
+                    placeholder="HH:MM"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numbers-and-punctuation"
+                  />
+                </View>
+              </View>
+
+              {myShift && (
+                <View style={[styles.shiftInfoBanner, { marginBottom: 16 }]}>
+                  <Ionicons name="time-outline" size={14} color="#0041E8" />
+                  <Text style={styles.shiftInfoText}>Shift: {myShift.label}</Text>
+                </View>
+              )}
+
+              <Text style={styles.inputLabel}>Reason *</Text>
+              <TextInput
+                style={[styles.modalInput, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+                value={reqReason}
+                onChangeText={setReqReason}
+                placeholder="Explain the attendance discrepancy…"
+                placeholderTextColor="#94A3B8"
+                multiline
+              />
+
+              <TouchableOpacity
+                style={[styles.primaryActionButton, reqSubmitting && { opacity: 0.65 }]}
+                activeOpacity={0.88}
+                onPress={handleSubmitRequest}
+                disabled={reqSubmitting}
+              >
+                {reqSubmitting
+                  ? <ActivityIndicator color="#FFF" />
+                  : <Text style={styles.primaryActionButtonText}>SUBMIT REQUEST</Text>
+                }
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </ScreenWrapper>
   );
 }
@@ -988,5 +1270,62 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: '600',
     marginTop: 2,
+  },
+  /* Shift info banner */
+  shiftInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
+  },
+  shiftInfoText: {
+    fontSize: 13,
+    color: '#1D4ED8',
+    fontWeight: '600',
+    flex: 1,
+  },
+  /* Request / Leave modal */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 48,
+    fontSize: 14,
+    color: '#0F172A',
+    marginBottom: 16,
   },
 });

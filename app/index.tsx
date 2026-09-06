@@ -1,23 +1,23 @@
+import { API_CONFIG } from '@/constants/api';
+import { useAuth } from '@/hooks/useAuth';
+import { Ionicons } from '@expo/vector-icons';
+import { Redirect, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
-  View,
-  TouchableOpacity,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  SafeAreaView,
-  StatusBar,
-  Alert,
-  ActivityIndicator,
-  Modal,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Redirect } from 'expo-router';
-import { useAuth } from '@/hooks/useAuth';
-import { API_CONFIG } from '@/constants/api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function LoginScreen() {
         <View style={styles.splashBadge}>
           <Text style={styles.splashBadgeText}>V</Text>
         </View>
-        <Text style={styles.splashTitle}>VRITICO ERP</Text>
+        <Text style={styles.splashTitle}>VRITICO Solutions Pvt. Ltd.</Text>
         <ActivityIndicator color="#FFFFFF" size="large" style={{ marginTop: 24 }} />
       </SafeAreaView>
     );
@@ -127,7 +127,7 @@ export default function LoginScreen() {
             <View style={styles.logoBadge}>
               <Text style={styles.logoBadgeText}>V</Text>
             </View>
-            <Text style={styles.brandTitle}>VRITICO ERP</Text>
+            <Text style={styles.brandTitle}>VRITICO Solutions Pvt. Ltd.</Text>
             <Text style={styles.brandSubtitle}>Employee Portal & HR Workspace</Text>
           </View>
 

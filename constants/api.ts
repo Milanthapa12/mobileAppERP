@@ -35,4 +35,20 @@ export const API_ENDPOINTS = {
     PUNCH: '/auth/device/attendance/punch',
     HISTORY: '/auth/device/attendanceHistory',
   },
+  LEAVE: {
+    CATEGORIES: '/auth/device/leave-categories',
+    BALANCE: (leaveId: number | string) => `/auth/device/leave-balance/${leaveId}`,
+    INDEX: '/auth/device/leave-application',
+    SHOW: (id: number | string) => `/auth/device/leave-application/${id}`,
+    STORE: '/auth/device/leave-application',
+    UPDATE: (id: number | string) => `/auth/device/leave-application/${id}`,
+    DESTROY: (id: number | string) => `/auth/device/leave-application/${id}`,
+  },
+  ATTENDANCE_REQUEST: {
+    MY_SHIFT: '/auth/device/attendance-requests/my-shift',
+    INDEX: '/auth/device/attendance-requests',
+    SHOW: (id: number | string) => `/auth/device/attendance-requests/${id}`,
+    STORE: '/auth/device/attendance-requests',
+    DESTROY: (id: number | string) => `/auth/device/attendance-requests/${id}`,
+  },
 };
