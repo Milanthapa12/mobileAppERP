@@ -50,4 +50,8 @@ export const API_ENDPOINTS = {
   MY_PAYS: '/auth/device/my-pays',
   ATTENDANCE_REQUESTS: '/auth/device/attendance-requests',
   CODE_GENERATOR: '/auth/device/code-generator',
+  LEAVE_CATEGORIES: '/auth/device/leave-categories',
+  LEAVE_BALANCE: '/auth/device/leave-balance',
+  LEAVE_BALANCES: '/auth/device/leave-balances',
+  LEAVE_APPLICATIONS: '/auth/device/leave-application',
 };
