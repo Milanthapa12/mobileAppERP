@@ -46,7 +46,7 @@ const SECTIONS: Section[] = [
     title: 'Time & Attendance',
     items: [
       { title: 'Attendance', icon: 'time-outline', iconBg: '#F0FDFA', iconColor: '#0D9488', route: '/(tabs)/attendance' },
-      { title: 'Attendance Request', icon: 'calendar-outline', iconBg: '#E0F2FE', iconColor: '#0284C7', route: '/(tabs)/attendance' },
+      { title: 'Attendance Request', icon: 'calendar-outline', iconBg: '#E0F2FE', iconColor: '#0284C7', route: '/attendance-requests' },
       { title: 'Overtime Requests', icon: 'hourglass-outline', iconBg: '#FEF3C7', iconColor: '#D97706', route: '/overtime' },
     ],
   },

@@ -43,7 +43,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: 'Apply Leave',            icon: 'umbrella-outline',        bg: Colors.primaryLight, color: Colors.primary,  route: '/leave-balance'           },
   { label: 'Training Request',       icon: 'school-outline',         bg: Colors.purpleLight,  color: Colors.purple,                                    },
   { label: 'Travel Request',         icon: 'airplane-outline',       bg: Colors.skyLight,     color: Colors.sky,                                        },
-  { label: 'Attendance Request',     icon: 'calendar-outline',      bg: Colors.tealLight,    color: Colors.teal,     route: '/(tabs)/attendance'       },
+  { label: 'Attendance Request',     icon: 'calendar-outline',      bg: Colors.tealLight,    color: Colors.teal,     route: '/attendance-requests' },
   { label: 'Overtime',               icon: 'timer-outline',          bg: Colors.warningLight, color: Colors.warning,  route: '/overtime'                },
   { label: 'In Lieu',                icon: 'swap-horizontal-outline',bg: Colors.emeraldLight, color: Colors.emerald,                                     },
   { label: 'Requisition',            icon: 'clipboard-outline',      bg: Colors.dangerLight,  color: Colors.danger,
