@@ -20,6 +20,8 @@ type Props = {
   showBack?: boolean;
   /** Called when back arrow is tapped */
   onBackPress?: () => void;
+  /** Show a hamburger menu button instead of avatar (left side) */
+  onMenuPress?: () => void;
 };
 
 export default function AppHeader({
@@ -31,11 +33,16 @@ export default function AppHeader({
   onNotificationPress,
   showBack = false,
   onBackPress,
+  onMenuPress,
 }: Props) {
   return (
     <View style={styles.topBar}>
-      {/* Left: Avatar or Back */}
-      {showBack ? (
+      {/* Left: Menu / Back / Avatar */}
+      {onMenuPress ? (
+        <TouchableOpacity style={styles.iconBtn} activeOpacity={0.8} onPress={onMenuPress}>
+          <Ionicons name="menu" size={22} color={Colors.textSecondary} />
+        </TouchableOpacity>
+      ) : showBack ? (
         <TouchableOpacity style={styles.iconBtn} activeOpacity={0.8} onPress={onBackPress}>
           <Ionicons name="arrow-back" size={20} color={Colors.textSecondary} />
         </TouchableOpacity>

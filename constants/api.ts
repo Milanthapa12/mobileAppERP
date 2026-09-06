@@ -47,4 +47,5 @@ export const API_ENDPOINTS = {
   },
   SETTINGS: '/auth/device/settings',
   PROFILE: '/auth/device/profile',
+  MY_PAYS: '/auth/device/my-pays',
 };

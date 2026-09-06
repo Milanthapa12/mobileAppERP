@@ -19,6 +19,7 @@ function RootLayoutNav() {
         <Stack.Screen name="leave-balance" options={{ headerShown: false }} />
         <Stack.Screen name="overtime" options={{ headerShown: false }} />
         <Stack.Screen name="claim" options={{ headerShown: false }} />
+        <Stack.Screen name="my-pays" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

@@ -4,10 +4,14 @@ import AppHeader from '@/components/AppHeader';
 import ScreenWrapper from '@/components/ScreenWrapper';
 import AttendancePanel from '@/components/AttendancePanel';
 import NotificationsModal, { DEFAULT_NOTIFICATIONS } from '@/components/NotificationsModal';
+import RouteMenuModal from '@/components/RouteMenuModal';
+import { settingsService, ModuleAccess } from '@/services/api/settingsService';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,17 +19,18 @@ import {
   View,
 } from 'react-native';
 
-// ─── Quick Action Grid Data ────────────────────────────────────────────────
-const QUICK_ACTIONS = [
-  { label: 'Leave',                icon: 'calendar-outline',      bg: Colors.primaryLight, color: Colors.primary,  route: '/leave-balance'        },
-  { label: 'Exceptional\nAttendance', icon: 'checkbox-outline',   bg: Colors.tealLight,   color: Colors.teal,     route: '/(tabs)/attendance'    },
-  { label: 'Overtime',             icon: 'hourglass-outline',     bg: Colors.warningLight, color: Colors.warning,  route: '/overtime'             },
-  { label: 'Claim',                icon: 'wallet-outline',        bg: Colors.dangerLight,  color: Colors.danger,   route: '/claim',  badge: 3     },
-  { label: 'Outside\nVisit',       icon: 'location-outline',      bg: Colors.purpleLight,  color: Colors.purple,   route: '/(tabs)/attendance'    },
-  { label: 'Work Shift',           icon: 'partly-sunny-outline',  bg: Colors.skyLight,     color: Colors.sky,      route: '/(tabs)/attendance'    },
-  { label: 'Documents',            icon: 'folder-open-outline',   bg: Colors.emeraldLight, color: Colors.emerald,  route: '/(tabs)/documents'     },
-  { label: 'Attendance\nHistory',  icon: 'time-outline',          bg: Colors.orangeLight,  color: Colors.orange,   route: '/(tabs)/attendance'    },
-] as const;
+// ─── Quick Action Grid Data (mirrors web dashboard QUICK_ACTIONS) ──────────
+type QuickAction = {
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  bg: string;
+  color: string;
+  route?: string;
+  gate?: (ma: ModuleAccess | null | undefined) => boolean;
+};
+
+const isOn = (ma: ModuleAccess | null | undefined, key: keyof ModuleAccess) =>
+  ma == null || String(ma[key]) === '1';
 
 // ─── Static Pending Approvals ─────────────────────────────────────────────
 const PENDING_APPROVALS = [
@@ -34,10 +39,50 @@ const PENDING_APPROVALS = [
   { name: 'Rina Rahmadi',       type: 'Marriage Leave' },
 ];
 
+const QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Apply Leave',            icon: 'umbrella-outline',        bg: Colors.primaryLight, color: Colors.primary,  route: '/leave-balance'           },
+  { label: 'Training Request',       icon: 'school-outline',         bg: Colors.purpleLight,  color: Colors.purple,                                    },
+  { label: 'Travel Request',         icon: 'airplane-outline',       bg: Colors.skyLight,     color: Colors.sky,                                        },
+  { label: 'Attendance Request',     icon: 'calendar-outline',      bg: Colors.tealLight,    color: Colors.teal,     route: '/(tabs)/attendance'       },
+  { label: 'Overtime',               icon: 'timer-outline',          bg: Colors.warningLight, color: Colors.warning,  route: '/overtime'                },
+  { label: 'In Lieu',                icon: 'swap-horizontal-outline',bg: Colors.emeraldLight, color: Colors.emerald,                                     },
+  { label: 'Requisition',            icon: 'clipboard-outline',      bg: Colors.dangerLight,  color: Colors.danger,
+    gate: (ma) => isOn(ma, 'is_inventory')                                                                                                             },
+  { label: 'My Payslips',            icon: 'wallet-outline',         bg: Colors.successLight, color: Colors.success,  route: '/my-pays',
+    gate: (ma) => isOn(ma, 'is_payroll')                                                                                                              },
+];
+
 export default function DashboardScreen() {
   const router = useRouter();
   const { user, activeBranch } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [moduleAccess, setModuleAccess] = useState<ModuleAccess | null | undefined>(null);
+
+  const loadFeatureSettings = useCallback(async () => {
+    try {
+      const res = await settingsService.getSettings();
+      setModuleAccess(res.data?.featureSetting?.moduleaccess);
+    } catch {
+      // Fall back to "everything visible" (moduleAccess stays null)
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFeatureSettings();
+  }, [loadFeatureSettings]);
+
+  const handleQuickAction = (action: QuickAction) => {
+    if (action.route) {
+      router.push(action.route as any);
+      return;
+    }
+    const msg = `${action.label} is coming soon.`;
+    if (Platform.OS === 'web') alert(msg);
+    else Alert.alert('Coming Soon', msg);
+  };
+
+  const visibleActions = QUICK_ACTIONS.filter((a) => !a.gate || a.gate(moduleAccess));
 
   const displayName = user?.name || 'Milan Thapa';
   const branchName  = activeBranch?.name || 'Dhaka, Bangladesh';
@@ -48,6 +93,7 @@ export default function DashboardScreen() {
         title={branchName}
         userName={displayName}
         notificationCount={3}
+        onMenuPress={() => setShowMenu(true)}
         onNotificationPress={() => setShowNotifications(true)}
       />
 
@@ -62,20 +108,20 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.gridContainer}>
-          {QUICK_ACTIONS.map((action) => (
+          {visibleActions.map((action) => (
             <TouchableOpacity
               key={action.label}
               style={styles.gridCard}
               activeOpacity={0.8}
-              onPress={() => router.push(action.route as any)}
+              onPress={() => handleQuickAction(action)}
             >
               <View style={styles.badgeWrapper}>
                 <View style={[styles.cardIconBox, { backgroundColor: action.bg }]}>
-                  <Ionicons name={action.icon as any} size={24} color={action.color} />
+                  <Ionicons name={action.icon} size={24} color={action.color} />
                 </View>
-                {'badge' in action && action.badge > 0 && (
-                  <View style={styles.notifBadge}>
-                    <Text style={styles.notifBadgeText}>{action.badge}</Text>
+                {!action.route && (
+                  <View style={styles.soonBadge}>
+                    <Text style={styles.soonBadgeText}>Soon</Text>
                   </View>
                 )}
               </View>
@@ -119,6 +165,12 @@ export default function DashboardScreen() {
         visible={showNotifications}
         onClose={() => setShowNotifications(false)}
         items={DEFAULT_NOTIFICATIONS}
+      />
+
+      <RouteMenuModal
+        visible={showMenu}
+        onClose={() => setShowMenu(false)}
+        moduleAccess={moduleAccess}
       />
     </ScreenWrapper>
   );
@@ -166,22 +218,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
   },
-  notifBadge: {
+  soonBadge: {
     position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: Colors.danger,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: Colors.warning,
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
     borderWidth: 2,
     borderColor: Colors.card,
   },
-  notifBadgeText: {
+  soonBadgeText: {
     color: Colors.card,
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: '800',
   },
   gridCardLabel: {
