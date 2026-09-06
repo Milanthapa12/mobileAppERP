@@ -70,6 +70,21 @@ export interface ProfileBasic {
   department?: string | null;
   designation?: string | null;
   joining_date?: string | null;
+  nationality?: string | null;
+  ethnicity?: string | null;
+  religion?: string | null;
+}
+
+export interface ProfileDocument {
+  id?: number;
+  name?: string | null;
+  number?: string | null;
+  document_type?: string | null;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  attachment_id?: number | null;
+  original_filename?: string | null;
+  extension?: string | null;
 }
 
 export interface EmployeeProfileResponse {
@@ -83,6 +98,7 @@ export interface EmployeeProfileResponse {
       | Array<ProfileEmploymentInfoRow | null>
       | null;
     employeeInfoHistory?: Record<string, ProfileEmploymentInfoRow[] | null>;
+    documents?: ProfileDocument[] | null;
   };
 }
 

@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Platform,
   RefreshControl,
   ScrollView,
@@ -16,11 +17,13 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import AppHeader from '@/components/AppHeader';
 import ScreenWrapper from '@/components/ScreenWrapper';
+import { API_CONFIG } from '@/constants/api';
 import { Colors, getInitials, Radius, Shadow } from '@/constants/theme';
 import {
   profileService,
   EmployeeProfileResponse,
   ProfileEmploymentInfoRow,
+  ProfileDocument,
 } from '@/services/api/profileService';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -121,15 +124,30 @@ const ADDRESS_TYPE_LABEL: Record<string, string> = {
   office_address: 'Office Address',
 };
 
+type TabKey = 'info' | 'additional' | 'documents';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'info', label: 'Info' },
+  { key: 'additional', label: 'Additional' },
+  { key: 'documents', label: 'Documents' },
+];
+
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, activeBranch, logout } = useAuth();
 
   const [data, setData] = useState<EmployeeProfileResponse['data'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedInfo, setExpandedInfo] = useState<Set<string>>(new Set());
   const [openCats, setOpenCats] = useState<Set<string>>(new Set());
+  const [tab, setTab] = useState<TabKey>('info');
+  const scrollRef = useRef<ScrollView>(null);
+
+  const switchTab = (key: TabKey) => {
+    setTab(key);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -188,6 +206,15 @@ export default function ProfileScreen() {
     }
   };
 
+  const openDoc = (doc: ProfileDocument, mode: 'view' | 'download') => {
+    const id = doc?.id;
+    if (!id) return;
+    const url = `${API_CONFIG.BASE_URL}/auth/device/employee-document/${mode}/${id}?branch_id=${activeBranch?.id ?? ''}`;
+    Linking.openURL(url).catch(() =>
+      Alert.alert('Unable to open document', 'The document file could not be opened.')
+    );
+  };
+
   const cap = (s?: string | null) => (s && s.length > 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
   const infoValue = (row?: ProfileEmploymentInfoRow | null): string => {
@@ -214,7 +241,11 @@ export default function ProfileScreen() {
   const countOf = (key: string): number => {
     switch (key) {
       case 'background':
-        return contact?.qualification_gap ? 1 : 0;
+        return [contact?.qualification_gap, data?.basic?.nationality, data?.basic?.ethnicity, data?.basic?.religion].some(
+            Boolean
+          )
+          ? 1
+          : 0;
       case 'health':
         return emp?.employee_health ? 1 : 0;
       case 'families':
@@ -258,12 +289,18 @@ export default function ProfileScreen() {
 
     switch (key) {
       case 'background': {
-        const qg = contact?.qualification_gap;
-        return qg ? (
-          <FieldRow label="Qualification Gap" value={qg} last />
-        ) : (
-          <EmptyNote message="No background details on record." />
-        );
+        const rows: { label: string; value?: string | null }[] = [
+          { label: 'Nationality', value: data?.basic?.nationality },
+          { label: 'Ethnicity', value: data?.basic?.ethnicity },
+          { label: 'Religion', value: data?.basic?.religion },
+          { label: 'Qualification Gap', value: contact?.qualification_gap },
+        ];
+        if (!rows.some((r) => r.value)) {
+          return <EmptyNote message="No background details on record." />;
+        }
+        return rows.map((r, i) => (
+          <FieldRow key={r.label} label={r.label} value={r.value} last={i === rows.length - 1} />
+        ));
       }
 
       case 'health': {
@@ -494,7 +531,23 @@ export default function ProfileScreen() {
   return (
     <ScreenWrapper>
       <AppHeader title="My Profile" userName={name} />
+
+      {/* ── Segments (sticky) ─────────────────────────────── */}
+      <View style={styles.segControl}>
+        {TABS.map((t) => (
+          <TouchableOpacity
+            key={t.key}
+            activeOpacity={0.8}
+            style={[styles.segItem, tab === t.key && styles.segItemActive]}
+            onPress={() => switchTab(t.key)}
+          >
+            <Text style={[styles.segText, tab === t.key && styles.segTextActive]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -556,6 +609,9 @@ export default function ProfileScreen() {
 
         {!loading && !error && data && (
           <View style={styles.contentBody}>
+            {/* ── Info tab ─────────────────────────────────────── */}
+            {tab === 'info' && (
+              <>
             {/* ── Personal Information ─────────────────────────── */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
@@ -672,36 +728,6 @@ export default function ProfileScreen() {
               })}
             </View>
 
-            {/* ── Additional Info ──────────────────────────────── */}
-            {GROUPS.map((group) => (
-              <View key={group.label} style={styles.groupBlock}>
-                <Text style={styles.groupHeader}>{group.label.toUpperCase()}</Text>
-                {group.items.map((cat) => {
-                  const open = openCats.has(cat.key);
-                  const count = countOf(cat.key);
-                  return (
-                    <View key={cat.key} style={styles.accCard}>
-                      <TouchableOpacity style={styles.accHeader} activeOpacity={0.7} onPress={() => toggleCat(cat.key)}>
-                        <View style={[styles.accIcon, { backgroundColor: cat.iconBg }]}>
-                          <Ionicons name={cat.icon} size={16} color={cat.iconColor} />
-                        </View>
-                        <Text style={styles.accTitle}>{cat.title}</Text>
-                        <View style={styles.accRight}>
-                          {count > 0 && (
-                            <View style={styles.countPill}>
-                              <Text style={styles.countText}>{count}</Text>
-                            </View>
-                          )}
-                          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="#94A3B8" />
-                        </View>
-                      </TouchableOpacity>
-                      {open && <View style={styles.accBody}>{renderCat(cat.key)}</View>}
-                    </View>
-                  );
-                })}
-              </View>
-            ))}
-
             {/* ── Account Settings ─────────────────────────────── */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
@@ -731,6 +757,107 @@ export default function ProfileScreen() {
               <Ionicons name="log-out-outline" size={20} color="#DC2626" />
               <Text style={styles.logoutText}>Sign Out</Text>
             </TouchableOpacity>
+              </>
+            )}
+
+            {/* ── Additional tab ───────────────────────────────── */}
+            {tab === 'additional' && (
+              <View style={styles.tabBody}>
+            {/* ── Additional Info ──────────────────────────────── */}
+            {GROUPS.map((group) => (
+              <View key={group.label} style={styles.groupBlock}>
+                <Text style={styles.groupHeader}>{group.label.toUpperCase()}</Text>
+                {group.items.map((cat) => {
+                  const open = openCats.has(cat.key);
+                  const count = countOf(cat.key);
+                  return (
+                    <View key={cat.key} style={styles.accCard}>
+                      <TouchableOpacity style={styles.accHeader} activeOpacity={0.7} onPress={() => toggleCat(cat.key)}>
+                        <View style={[styles.accIcon, { backgroundColor: cat.iconBg }]}>
+                          <Ionicons name={cat.icon} size={16} color={cat.iconColor} />
+                        </View>
+                        <Text style={styles.accTitle}>{cat.title}</Text>
+                        <View style={styles.accRight}>
+                          {count > 0 && (
+                            <View style={styles.countPill}>
+                              <Text style={styles.countText}>{count}</Text>
+                            </View>
+                          )}
+                          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="#94A3B8" />
+                        </View>
+                      </TouchableOpacity>
+                      {open && <View style={styles.accBody}>{renderCat(cat.key)}</View>}
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+              </View>
+            )}
+
+            {/* ── Documents tab ────────────────────────────────── */}
+            {tab === 'documents' && (
+              <View style={styles.tabBody}>
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionIcon, { backgroundColor: '#ECFDF5' }]}>
+                      <Ionicons name="folder-open-outline" size={18} color="#059669" />
+                    </View>
+                    <Text style={styles.sectionTitle}>Employee Documents</Text>
+                    <View style={styles.countPill}>
+                      <Text style={styles.countText}>{(data.documents ?? []).length}</Text>
+                    </View>
+                  </View>
+
+                  {!data.documents || data.documents.length === 0 ? (
+                    <EmptyNote message="No documents on record." />
+                  ) : (
+                    data.documents.map((doc) => (
+                      <View key={doc.id} style={styles.docCard}>
+                        <View style={styles.docIconBox}>
+                          <Ionicons name="document-text-outline" size={20} color="#0041E8" />
+                        </View>
+                        <View style={styles.docBody}>
+                          <View style={styles.docTitleRow}>
+                            <Text style={styles.docName} numberOfLines={1}>
+                              {doc.name || 'Document'}
+                            </Text>
+                            {doc.document_type ? (
+                              <View style={styles.docTypePill}>
+                                <Text style={styles.docTypePillText} numberOfLines={1}>
+                                  {doc.document_type}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          {doc.number ? <Text style={styles.docMeta}>No. {doc.number}</Text> : null}
+                          <Text style={styles.docMeta}>
+                            {[
+                              doc.issue_date ? `Issued ${String(doc.issue_date).slice(0, 10)}` : null,
+                              doc.expiry_date ? `Expires ${String(doc.expiry_date).slice(0, 10)}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join('  ·  ')}
+                          </Text>
+                        </View>
+                        {doc.attachment_id ? (
+                          <View style={styles.docActions}>
+                            <TouchableOpacity style={styles.docActionBtn} activeOpacity={0.7} onPress={() => openDoc(doc, 'view')}>
+                              <Ionicons name="eye-outline" size={14} color="#0041E8" />
+                              <Text style={styles.docActionText}>View</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.docActionBtn} activeOpacity={0.7} onPress={() => openDoc(doc, 'download')}>
+                              <Ionicons name="download-outline" size={14} color="#059669" />
+                              <Text style={styles.docActionText}>Download</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : null}
+                      </View>
+                    ))
+                  )}
+                </View>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -861,6 +988,104 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 20,
     gap: 16,
+  },
+  segControl: {
+    flexDirection: 'row',
+    backgroundColor: '#EEF2F7',
+    borderRadius: Radius.full,
+    padding: 4,
+    gap: 4,
+    marginHorizontal: 20,
+    marginVertical: 12,
+  },
+  segItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 36,
+    borderRadius: Radius.full,
+  },
+  segItemActive: {
+    backgroundColor: '#FFFFFF',
+    ...Shadow.sm,
+  },
+  segText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  segTextActive: {
+    color: Colors.primary,
+  },
+  tabBody: {
+    gap: 10,
+  },
+  docCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.borderLight,
+  },
+  docIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.md,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docBody: {
+    flex: 1,
+    gap: 2,
+  },
+  docTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  docName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+    flexShrink: 1,
+  },
+  docTypePill: {
+    backgroundColor: '#EEF2F7',
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  docTypePillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  docMeta: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  docActions: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  docActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  docActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
   },
   sectionCard: {
     backgroundColor: Colors.card,
