@@ -22,11 +22,13 @@ import {
   LeaveBalanceItem,
   LeaveCategoryBalance,
   LeaveCategoryOption,
+  LeaveDocumentFile,
   LeaveDuration,
   LeavePayload,
   leaveService,
 } from '@/services/api/leaveService';
 import DateTimePickerField from '@/components/DateTimePickerField';
+import * as DocumentPicker from 'expo-document-picker';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -281,6 +283,8 @@ export default function LeaveScreen() {
   const [effectiveTo, setEffectiveTo] = useState(toDateStr(new Date()));
   const [draftRows, setDraftRows] = useState<LeaveRowDraft[]>([newRow(toDateStr(new Date()))]);
   const [reason, setReason] = useState('');
+  const [document, setDocument] = useState<LeaveDocumentFile | null>(null);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -351,6 +355,7 @@ export default function LeaveScreen() {
       setCategoryBalance(null);
       setLeaveCatId(record?.leave_cat_id ?? null);
       setReason(record?.reason ?? '');
+      setDocument(null);
 
       if (record) {
         setCode(record.code);
@@ -381,6 +386,26 @@ export default function LeaveScreen() {
     },
     []
   );
+
+  const pickDocument = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || result.assets.length === 0) return;
+      const asset = result.assets[0];
+      const webFile = Platform.OS === 'web' && 'output' in result ? (result as any).output?.[0] ?? null : null;
+      setDocument({
+        uri: asset.uri,
+        name: asset.name,
+        type: asset.mimeType ?? null,
+        webFile,
+      });
+    } catch (e: any) {
+      alertMessage('Error', e?.message || 'Failed to pick a document.');
+    }
+  }, []);
 
   const openCreate = () => {
     setEditing(null);
@@ -509,8 +534,8 @@ export default function LeaveScreen() {
     setSaving(true);
     try {
       const res = editing
-        ? await leaveService.update(editing.id, payload)
-        : await leaveService.store(payload);
+        ? await leaveService.update(editing.id, payload, document)
+        : await leaveService.store(payload, document);
       alertMessage('Success', res?.message || 'Leave application submitted.');
       setFormMode(false);
       setEditing(null);
@@ -708,25 +733,20 @@ export default function LeaveScreen() {
           <Text style={styles.fieldLabel}>
             Leave Type <Text style={styles.requiredStar}>*</Text>
           </Text>
-          {categories.length === 0 ? (
-            <ActivityIndicator size="small" color="#0041E8" />
-          ) : (
-            <View style={styles.chipWrap}>
-              {categories.map((cat) => {
-                const selected = leaveCatId === cat.value;
-                return (
-                  <TouchableOpacity
-                    key={cat.value}
-                    style={[styles.chip, selected && styles.chipActive]}
-                    activeOpacity={0.8}
-                    onPress={() => selectCategory(cat.value)}
-                  >
-                    <Text style={[styles.chipText, selected && styles.chipTextActive]}>{cat.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
+          <TouchableOpacity
+            style={styles.selectField}
+            activeOpacity={0.8}
+            onPress={() => categories.length > 0 && setCategoryPickerOpen(true)}
+          >
+            {leaveCatId ? (
+              <Text style={styles.selectFieldValue} numberOfLines={1}>
+                {categories.find((c) => c.value === leaveCatId)?.label ?? 'Loading…'}
+              </Text>
+            ) : (
+              <Text style={styles.selectFieldPlaceholder}>Choose leave type…</Text>
+            )}
+            <Ionicons name="chevron-down" size={18} color="#94A3B8" />
+          </TouchableOpacity>
           {categoryBalance && categoryBalance.name && (
             <View style={styles.balanceInfoBox}>
               <Ionicons name="wallet-outline" size={14} color="#0041E8" />
@@ -810,6 +830,27 @@ export default function LeaveScreen() {
           />
         </View>
 
+        {/* Attachment */}
+        <View style={styles.fieldBlock}>
+          <Text style={styles.fieldLabel}>Attachment (optional)</Text>
+          {document ? (
+            <View style={styles.docSelectedRow}>
+              <Ionicons name="document-attach-outline" size={18} color="#0041E8" />
+              <Text style={styles.docName} numberOfLines={1}>{document.name}</Text>
+              <TouchableOpacity onPress={() => setDocument(null)} hitSlop={8} style={styles.docRemoveBtn}>
+                <Ionicons name="close" size={18} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.docPickBtn} activeOpacity={0.85} onPress={pickDocument}>
+              <Ionicons name="cloud-upload-outline" size={18} color="#0041E8" />
+              <Text style={styles.docPickBtnText}>
+                {editing ? 'Replace document (optional)' : 'Upload document'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <TouchableOpacity
           style={[styles.submitBtn, saving && styles.submitBtnDisabled]}
           onPress={handleSubmit}
@@ -882,6 +923,31 @@ export default function LeaveScreen() {
         onDelete={handleDelete}
         deleting={deleting}
       />
+
+      <Modal visible={categoryPickerOpen} transparent animationType="fade" onRequestClose={() => setCategoryPickerOpen(false)}>
+        <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setCategoryPickerOpen(false)}>
+          <TouchableOpacity style={styles.pickerSheet} activeOpacity={1} onPress={() => {}}>
+            <Text style={styles.pickerTitle}>Select Leave Type</Text>
+            {categories.map((cat) => {
+              const selected = leaveCatId === cat.value;
+              return (
+                <TouchableOpacity
+                  key={cat.value}
+                  style={[styles.pickerItem, selected && styles.pickerItemActive]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setCategoryPickerOpen(false);
+                    selectCategory(cat.value);
+                  }}
+                >
+                  <Text style={[styles.pickerItemText, selected && styles.pickerItemTextActive]}>{cat.label}</Text>
+                  {selected && <Ionicons name="checkmark" size={18} color="#0041E8" />}
+                </TouchableOpacity>
+              );
+            })}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1149,18 +1215,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fieldHint: { fontSize: 11, color: '#94A3B8', marginTop: 4 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+  selectField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
-  chipActive: { backgroundColor: '#0041E8', borderColor: '#0041E8' },
-  chipText: { fontSize: 12, fontWeight: '600', color: '#475569' },
-  chipTextActive: { color: '#FFFFFF', fontWeight: '700' },
+  selectFieldValue: { fontSize: 14, color: '#0F172A', flex: 1, marginRight: 8 },
+  selectFieldPlaceholder: { fontSize: 14, color: '#94A3B8', flex: 1, marginRight: 8 },
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)', justifyContent: 'center', padding: 24 },
+  pickerSheet: { backgroundColor: '#FFFFFF', borderRadius: 16, paddingVertical: 8, paddingHorizontal: 8, maxHeight: '70%' },
+  pickerTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A', padding: 12, paddingBottom: 8 },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  pickerItemActive: { backgroundColor: '#EEF2FF' },
+  pickerItemText: { fontSize: 14, color: '#334155' },
+  pickerItemTextActive: { color: '#0041E8', fontWeight: '700' },
   balanceInfoBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1200,6 +1281,32 @@ const styles = StyleSheet.create({
   durationChipText: { fontSize: 12, fontWeight: '600', color: '#475569' },
   durationChipTextActive: { color: '#0041E8', fontWeight: '700' },
   reasonInput: { minHeight: 80, textAlignVertical: 'top' },
+  docPickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EEF2FF',
+    borderRadius: 10,
+    paddingVertical: 14,
+  },
+  docPickBtnText: { fontSize: 13, fontWeight: '600', color: '#0041E8' },
+  docSelectedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  docName: { flex: 1, fontSize: 13, fontWeight: '600', color: '#166534' },
+  docRemoveBtn: { padding: 2 },
   submitBtn: {
     backgroundColor: '#0041E8',
     height: 52,

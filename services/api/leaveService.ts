@@ -98,6 +98,40 @@ export interface MessageResponse {
   message?: string;
 }
 
+export interface LeaveDocumentFile {
+  uri: string;
+  name: string;
+  type?: string | null;
+  webFile?: File | null;
+}
+
+function buildLeaveFormData(payload: LeavePayload, document?: LeaveDocumentFile | null): FormData {
+  const fd = new FormData();
+  fd.append('code', payload.code);
+  fd.append('leave_cat_id', String(payload.leave_cat_id));
+  fd.append('effective_from', payload.effective_from);
+  fd.append('effective_to', payload.effective_to);
+  fd.append('total_days', String(payload.total_days));
+  fd.append('reason', payload.reason);
+  payload.leave_rows.forEach((row, i) => {
+    fd.append(`leave_rows[${i}][date]`, row.date);
+    fd.append(`leave_rows[${i}][duration]`, row.duration);
+    fd.append(`leave_rows[${i}][days]`, String(row.days));
+  });
+  if (document) {
+    if (document.webFile) {
+      fd.append('document', document.webFile, document.name);
+    } else {
+      fd.append('document', {
+        uri: document.uri,
+        name: document.name,
+        type: document.type ?? 'application/octet-stream',
+      } as any);
+    }
+  }
+  return fd;
+}
+
 export const leaveService = {
   async list(): Promise<LeaveListResponse> {
     return apiClient.get<LeaveListResponse>(API_ENDPOINTS.LEAVE_APPLICATIONS);
@@ -107,14 +141,24 @@ export const leaveService = {
     return apiClient.get<LeaveShowResponse>(`${API_ENDPOINTS.LEAVE_APPLICATIONS}/${id}`);
   },
 
-  async store(payload: LeavePayload): Promise<MessageResponse> {
-    return apiClient.post<MessageResponse>(API_ENDPOINTS.LEAVE_APPLICATIONS, payload);
+  async store(payload: LeavePayload, document?: LeaveDocumentFile | null): Promise<MessageResponse> {
+    const fd = buildLeaveFormData(payload, document);
+    return apiClient.request<MessageResponse>(API_ENDPOINTS.LEAVE_APPLICATIONS, {
+      method: 'POST',
+      body: fd,
+    });
   },
 
-  async update(id: number, payload: LeavePayload): Promise<MessageResponse> {
-    return apiClient.patch<MessageResponse>(`${API_ENDPOINTS.LEAVE_APPLICATIONS}/${id}`, {
-      ...payload,
-      id,
+  async update(
+    id: number,
+    payload: LeavePayload,
+    document?: LeaveDocumentFile | null
+  ): Promise<MessageResponse> {
+    const fd = buildLeaveFormData(payload, document);
+    fd.append('id', String(id));
+    return apiClient.request<MessageResponse>(`${API_ENDPOINTS.LEAVE_APPLICATIONS}/${id}`, {
+      method: 'PATCH',
+      body: fd,
     });
   },
 

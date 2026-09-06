@@ -43,6 +43,7 @@ export const apiClient = {
     }
 
     let requestBody = customConfig.body;
+    const isFormData = requestBody instanceof FormData;
     if (requestBody && typeof requestBody === 'string' && activeBranch?.id) {
       try {
         const parsed = JSON.parse(requestBody);
@@ -56,13 +57,18 @@ export const apiClient = {
       } catch (e) {}
     }
 
+    const finalHeaders: Record<string, string> = {
+      ...defaultHeaders,
+      ...(headers as Record<string, string>),
+    };
+    if (isFormData) {
+      delete finalHeaders['Content-Type'];
+    }
+
     const config: RequestInit = {
       ...customConfig,
       body: requestBody,
-      headers: {
-        ...defaultHeaders,
-        ...(headers as Record<string, string>),
-      },
+      headers: finalHeaders,
       signal: controller.signal,
     };
 
