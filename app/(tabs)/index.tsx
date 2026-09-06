@@ -45,7 +45,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: 'Travel Request',         icon: 'airplane-outline',       bg: Colors.skyLight,     color: Colors.sky,      route: '/travel'                },
   { label: 'Attendance Request',     icon: 'calendar-outline',      bg: Colors.tealLight,    color: Colors.teal,     route: '/attendance-requests' },
   { label: 'Overtime',               icon: 'timer-outline',          bg: Colors.warningLight, color: Colors.warning,  route: '/overtime'                },
-  { label: 'In Lieu',                icon: 'swap-horizontal-outline',bg: Colors.emeraldLight, color: Colors.emerald,                                     },
+  { label: 'In Lieu',                icon: 'swap-horizontal-outline',bg: Colors.emeraldLight, color: Colors.emerald, route: '/inLieu'                    },
   { label: 'Requisition',            icon: 'clipboard-outline',      bg: Colors.dangerLight,  color: Colors.danger,
     gate: (ma) => isOn(ma, 'is_inventory')                                                                                                             },
   { label: 'My Payslips',            icon: 'wallet-outline',         bg: Colors.successLight, color: Colors.success,  route: '/my-pays',

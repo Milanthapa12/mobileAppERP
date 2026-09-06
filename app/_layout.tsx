@@ -20,6 +20,7 @@ function RootLayoutNav() {
         <Stack.Screen name="travel" options={{ headerShown: false }} />
         <Stack.Screen name="overtime" options={{ headerShown: false }} />
         <Stack.Screen name="training" options={{ headerShown: false }} />
+        <Stack.Screen name="inLieu" options={{ headerShown: false }} />
         <Stack.Screen name="claim" options={{ headerShown: false }} />
         <Stack.Screen name="my-pays" options={{ headerShown: false }} />
         <Stack.Screen name="attendance-requests" options={{ headerShown: false }} />

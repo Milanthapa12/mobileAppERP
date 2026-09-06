@@ -54,7 +54,7 @@ const SECTIONS: Section[] = [
     title: 'Leave & Time Off',
     items: [
       { title: 'Leave Applications', icon: 'document-text-outline', iconBg: '#ECFDF5', iconColor: '#059669', route: '/leave' },
-      { title: 'In Lieu', icon: 'swap-horizontal-outline', iconBg: '#F3E8FF', iconColor: '#9333EA' },
+      { title: 'In Lieu', icon: 'swap-horizontal-outline', iconBg: '#F3E8FF', iconColor: '#9333EA', route: '/inLieu' },
     ],
   },
   {
